@@ -176,10 +176,10 @@ public class ToolpathGeneratorFactory {
 
 		class Skeinforge44 extends SkeinforgeGenerator {
 			public File getDefaultSkeinforgeDir() {
-		    	return Base.getApplicationFile("skein_engines/skeinforge-44/skeinforge_application");
+				return Base.getApplicationFile("skein_engines/skeinforge-44/skeinforge_application");
 			}
 			public File getUserProfilesDir() {
-		    	return Base.getUserFile("sf_44_profiles");
+				return Base.getUserFile("sf_44_profiles");
 			}
 			public List<SkeinforgePreference> getPreferences() {
 				List <SkeinforgePreference> prefs = new LinkedList<SkeinforgePreference>();

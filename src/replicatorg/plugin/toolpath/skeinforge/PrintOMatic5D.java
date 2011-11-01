@@ -100,7 +100,7 @@ public class PrintOMatic5D implements SkeinforgePreference {
 
 	
 	private void addBooleanParameter(JComponent target, String name, String description, boolean defaultValue, String toolTip) {
-		String fullName = baseName + name;
+		final String fullName = baseName + name;
 		boolean isSet = false;
 		
 		if (fullName != null) {
@@ -111,8 +111,13 @@ public class PrintOMatic5D implements SkeinforgePreference {
 		}
 		target.add(new JLabel(description));
 		
-		JCheckBox input = new JCheckBox("", isSet);
+		final JCheckBox input = new JCheckBox("", isSet);
 		target.add(input, "wrap");
+		input.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				Base.preferences.putBoolean(fullName, input.isSelected());
+			}
+		});
 		
 		if (toolTip != null) {
 			// TODO: This is wrong.

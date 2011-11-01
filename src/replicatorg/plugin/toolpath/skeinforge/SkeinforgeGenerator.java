@@ -34,6 +34,7 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 	boolean configSuccess = false;
 	String profile = null;
 	List <SkeinforgePreference> preferences;
+	Map <String, Profile> profiles;
 
 	// "skein_engines/skeinforge-0006","sf_profiles");
 	public SkeinforgeGenerator() {
@@ -72,39 +73,109 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 		Base.preferences.put("replicatorg.skeinforge.profile", name);
 	}
 
+	/**
+	 * A Profile describes both a profile and all of it's settings.
+	 * @author phooky
+	 */
 	static class Profile implements Comparable<Profile> {
-		private String fullPath;
-		private String name;
+		private File profileFile;
+		private Map<String,String> settingMap = new HashMap<String,String>();
+		private Map<String,Long> moduleModificationMap = new HashMap<String,Long>();
 
 		public Profile(String fullPath) {
-			this.fullPath = fullPath;
-			int idx = fullPath.lastIndexOf(File.separatorChar);
-			if (idx >= 0) {
-				name = fullPath.substring(idx + 1);
-			} else {
-				name = fullPath;
-			}
+			this.profileFile = new File(fullPath);
+			this.scanProfileFolder(profileFile, (String)null);
 		}
 
 		public String getFullPath() {
-			return fullPath;
+			return profileFile.getPath();
 		}
 
 		public String toString() {
-			return name;
+			return profileFile.getName();
+		}
+		
+		public String getValue(String module, String key) {
+			return settingMap.get(module+":"+key);
+		}
+		
+		public void getValue(String module, String key, String value) {
+			settingMap.put(module+":"+key, value);
 		}
 
 		public int compareTo(Profile o) {
-			return name.compareTo(o.name);
+			return profileFile.getName().compareTo(o.profileFile.getName());
+		}
+
+		public boolean equals(String o) {
+			return profileFile.getName().equals(o);
+		}
+		
+		public Boolean checkForUpdate() {
+			return scanProfileFolder(profileFile, (String)null);
+		}
+		
+		private Boolean scanProfileFolder(File basePath, String subprofile) {
+			Boolean updated = false;
+			for (String subpath : basePath.list()) {
+				File subFile = new File(basePath, subpath);
+				if (subFile.isDirectory()) {
+					if (subFile.getName().matches("^(profiles|extrusion)$")) {
+						scanProfileFolder(subFile, (String)null);
+					} else {
+						scanProfileFolder(subFile, subFile.getName());
+					}
+				}
+				else if (subFile.getName().matches(".*\\.csv$")) {
+					if (moduleModificationMap.containsKey(subprofile+"/"+subFile.getName())) {
+						if (moduleModificationMap.get(subprofile+"/"+subFile.getName())<subFile.lastModified()) {
+							moduleModificationMap.put(subprofile+"/"+subFile.getName(), subFile.lastModified());
+							updated = true;
+						}
+					} else {
+						moduleModificationMap.put(subprofile+"/"+subFile.getName(), subFile.lastModified());
+						updated = true;
+					}
+					Base.logger.log(Level.FINEST, "\t"+subprofile+"/"+subFile.getName());
+					BufferedReader in = null;
+					try {
+						in = new BufferedReader(new FileReader(subFile));
+					} catch (java.io.FileNotFoundException ioe) {
+						Base.logger.log(Level.SEVERE, "Couldn't read directory: " + subFile, ioe);
+					}
+					String line = null;
+					int skip = 2;
+					while (true) {
+						try {
+							line = in.readLine();
+						} catch (IOException ioe) {
+							Base.logger.log(Level.SEVERE, "Couldn't read line from: " + subFile, ioe);
+							line = null;
+						}
+						if (line == null)
+							break;
+						if (skip-- > 0) // skip the comment and the header
+							continue;
+						String[] tokens = line.split("\t");
+						// Base.logger.log(Level.FINEST, subprofile+"/"+subFile.getName()+":"+line);
+						// Base.logger.log(Level.FINEST, (subprofile==null?"":subprofile+"/")+subFile.getName()+":"+tokens[0]+"=="+(tokens.length>1?tokens[1]:null));
+						settingMap.put((subprofile==null?"":subprofile+"/")+subFile.getName()+":"+tokens[0], (tokens.length>1?tokens[1]:null));
+					}
+				}
+			}
+			return updated;
 		}
 	}
 
-	void getProfilesIn(File dir, List<Profile> profiles) {
+	void getProfilesIn(File dir) {
 		if (dir.exists() && dir.isDirectory()) {
 			for (String subpath : dir.list()) {
 				File subDir = new File(dir, subpath);
 				if (subDir.isDirectory()) {
-					profiles.add(new Profile(subDir.getAbsolutePath()));
+					if (profiles.containsKey(subDir.getAbsolutePath()))
+						profiles.get(subDir.getAbsolutePath()).checkForUpdate();
+					else
+						profiles.put(subDir.getAbsolutePath(), new Profile(subDir.getAbsolutePath()));
 				}
 			}
 		}
@@ -113,14 +184,13 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 	abstract public File getUserProfilesDir();
 
 	List<Profile> getProfiles() {
-		final List<Profile> profiles = new LinkedList<Profile>(); 
 		// Get default installed profiles
 		File dir = new File(getSkeinforgeDir(), "prefs");
-		getProfilesIn(dir, profiles);
+		getProfilesIn(dir);
 		dir = getUserProfilesDir();
-		getProfilesIn(dir, profiles);
-		Collections.sort(profiles);
-		return profiles;
+		getProfilesIn(dir);
+		// Collections.sort(profiles);
+		return profiles.values();
 	}
 
 	
@@ -139,14 +209,26 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 			this.preference = preference; 
 			this.value = value;
 		}
+/* *I don't think we want this to be used. We'll catch it if we try now...*
 		public SkeinforgeOption(String parameter) {
 			this.parameter = parameter;
 			this.module = null;
+			this.subprofile = null;
 			this.preference = null;
 			this.value = "";
 		}
+*/
 		public String getParameter() {
 			return this.parameter;
+		}
+		public String getModule() {
+			return this.module;
+		}
+		public String getPreference() {
+			return this.preference;
+		}
+		public String getValue() {
+			return this.value;
 		}
 		public String getArgument() {
 			return (this.module != null ? this.module + ":" : "") + (this.preference != null ? this.preference + "=" : "") + this.value;
@@ -508,8 +590,7 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 			est.start();
 			int value = process.waitFor();
 			if (value != 0) {
-				Base.logger
-						.severe("Unrecognized error code returned by Skeinforge.");
+				Base.logger.severe("Unrecognized error code returned by Skeinforge.");
 				// Throw ToolpathGeneratorException
 				return null;
 			}

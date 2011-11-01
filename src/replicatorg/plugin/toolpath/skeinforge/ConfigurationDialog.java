@@ -102,6 +102,7 @@ class ConfigurationDialog extends JDialog {
 		prefPulldown.addActionListener(new ActionListener(){
 			public void actionPerformed(ActionEvent arg0) {
 				String value = (String)prefPulldown.getSelectedItem().toString();
+				parentGeneratorIn.setSelectedProfile(value);
 			}
 		});
 		add(prefPulldown, "wrap, growx");
