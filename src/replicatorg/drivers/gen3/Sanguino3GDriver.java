@@ -584,6 +584,7 @@ public class Sanguino3GDriver extends SerialDriver
 		super.setCurrentPosition(p);
 	}
 
+	//TODO: this says it homes the first three axes, but it actually homes whatever's passed
 	// Homes the three first axes
 	public void homeAxes(EnumSet<AxisId> axes, boolean positive, double feedrate) throws RetryException {
 		Base.logger.fine("Homing axes "+axes.toString());
@@ -1118,18 +1119,28 @@ public class Sanguino3GDriver extends SerialDriver
 	}
 
 	public void readTemperature() {
-		PacketBuilder pb = new PacketBuilder(MotherboardCommandCode.TOOL_QUERY.getCode());
-		pb.add8((byte) machine.currentTool().getIndex());
-		pb.add8(ToolCommandCode.GET_TEMP.getCode());
-		PacketResponse pr = runQuery(pb.getPacket());
-		if (pr.isEmpty()) return;
-		// FIXME: First, check that the result code is OK. We occasionally receive RC_DOWNSTREAM_TIMEOUT codes here. kintel 20101207.
-		int temp = pr.get16();
-		machine.currentTool().setCurrentTemperature(temp);
-
-		Base.logger.fine("Current temperature: "
+		Vector<ToolModel> tools = machine.getTools();
+		for (ToolModel t : tools) {
+			PacketBuilder pb = new PacketBuilder(MotherboardCommandCode.TOOL_QUERY.getCode());
+			pb.add8((byte) t.getIndex());
+			pb.add8(ToolCommandCode.GET_TEMP.getCode());
+			PacketResponse pr = runQuery(pb.getPacket());
+			if (pr.getResponseCode() == PacketResponse.ResponseCode.TIMEOUT) 
+				Base.logger.finer("timeout reading temp");
+			else if (pr.isEmpty()) 
+				Base.logger.finer("empty response, no temp");
+			else { 
+				int temp = pr.get16();
+				t.setCurrentTemperature(temp);
+				Base.logger.fine("New Current temperature: "
 					+ machine.currentTool().getCurrentTemperature() + "C");
+			}
+			// Check if we should co-read platform temperatures when we read head temp.
+			if( machine.currentTool().alwaysReadBuildPlatformTemp() ) {
+				this.readPlatformTemperature();
+			}
 
+		}
 		super.readTemperature();
 	}
 	
@@ -1141,11 +1152,17 @@ public class Sanguino3GDriver extends SerialDriver
 		// constrain our temperature.
 		int temp = (int) Math.round(temperature);
 		temp = Math.min(temp, 65535);
-		
 		Base.logger.fine("Setting platform temperature to " + temp + "C");
 		
 		PacketBuilder pb = new PacketBuilder(MotherboardCommandCode.TOOL_COMMAND.getCode());
-		pb.add8((byte) machine.currentTool().getIndex());
+
+		// This is intended to fix a problem where on dualstrusion 
+		// machines the heated build platform is hooked up to T1, not T0
+		if(machine.getTools().size() == 1)
+			pb.add8((byte) 0);
+		else
+			pb.add8((byte) 1);
+			
 		pb.add8(ToolCommandCode.SET_PLATFORM_TEMP.getCode());
 		pb.add8((byte) 2); // payload length
 		pb.add16(temp);
@@ -1232,6 +1249,7 @@ public class Sanguino3GDriver extends SerialDriver
 	}
 	
 	public void setAutomatedBuildPlatformRunning(boolean state) throws RetryException {
+		//why is this severe?
 		Base.logger.severe("Toggling ABP to " + state);
 		byte newState = state? (byte)1:(byte)0;
 		

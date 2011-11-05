@@ -1,9 +1,9 @@
 package replicatorg.dualstrusion;
 
 import java.io.File;
+import java.util.logging.Level;
 
 import replicatorg.app.Base;
-import replicatorg.app.ui.DualStrusionWindow;
 
 
 /**
@@ -15,7 +15,7 @@ public class DualStrusionConstruction implements Runnable {
 
 	private File result;
 	private File primary, secondary, dest;
-	private boolean replaceStart, replaceEnd;
+	private boolean replaceStart, replaceEnd, useWipes;
 	//private Thread wait1, wait2;
 	/**
 	 * This constructor mimics the paramaters of shuffle
@@ -25,13 +25,14 @@ public class DualStrusionConstruction implements Runnable {
 	 * @param rs replace start
 	 * @param re replace end
 	 */
-	public DualStrusionConstruction(File p, File s, File d, boolean rs, boolean re)
+	public DualStrusionConstruction(File p, File s, File d, boolean rs, boolean re, boolean uW)
 	{
 		primary = p;
 		secondary = s;
 		dest = d;
 		replaceStart = rs;
 		replaceEnd = re;
+		useWipes = uW;
 	//	wait1 = t1;
 		//wait2 = t2;
 	}
@@ -49,8 +50,17 @@ public class DualStrusionConstruction implements Runnable {
 	 */
 	public void run() {
 		System.out.println("DSW primary " + primary.getName() + " secondary " + secondary.getName());
-		result = DualStrusionWorker.shuffle(primary, secondary, dest, replaceStart, replaceEnd);
-		Base.getEditor().handleOpenFile(result);
+		try
+		{
+			result = DualStrusionWorker.shuffle(primary, secondary, dest, replaceStart, replaceEnd, useWipes);
+			Base.getEditor().handleOpenFile(result);
+		}
+		catch(Exception e)
+		{
+			Base.logger.log(Level.SEVERE, "Could not finish combining gcodes for dualstrusion, Sorry.\n" +
+					"Dualstrusion is still very new functionality and is currently being improved.");
+			e.printStackTrace();
+		}
 	}
 	
 }

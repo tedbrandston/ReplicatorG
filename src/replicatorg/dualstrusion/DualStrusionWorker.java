@@ -75,10 +75,13 @@ public class DualStrusionWorker {
 	 */
 	public static void main(String[]args)
 	{
-//		DualStrusionConstruction dsc = new DualStrusionConstruction(new File("/home/makerbot/baghandle/ergo_bag_handle_top.gcode"), new File("/home/makerbot/baghandle/ergo_bag_handle_bottom.gcode"), new File ("/home/makerbot/baghandle/ergocombine.gcode"), true, true);
-//		Thread th = new Thread(dsc);
-//		th.run();
-//		File result = dsc.getCombinedFile();
+		// Old test code for when brockhold and noah was working on 
+		//DualStrusionConstruction dsc = new DualStrusionConstruction(new File("/home/makerbot/baghandle/ergo_bag_handle_top.gcode"), 
+		//	new File("/home/makerbot/baghandle/ergo_bag_handle_bottom.gcode"), new File ("/home/makerbot/baghandle/ergocombine.gcode"), true, true);
+		//Thread th = new Thread(dsc);
+		//th.run();
+		//File result = dsc.getCombinedFile();
+
 	}
 	/**
 	 * This is a method that calls all the preprocessing methods individually
@@ -97,10 +100,11 @@ public class DualStrusionWorker {
 	 * @param dest The destination Gcode file
 	 * @param replaceStart A boolean determined by the user in GUI as to whether to use default start.gcode or strip it from primary gcode
 	 * @param replaceEnd A boolean determined by the user in GUI as to whether to use default start.gcode or strip it from primary gcode
+	 * @param uW 
 	 * @return A reference to the completed gcode File
 	 */
 	//private static wipeArrays
-	public static File shuffle(File primary, File secondary, File dest, boolean replaceStart, boolean replaceEnd)
+	public static File shuffle(File primary, File secondary, File dest, boolean replaceStart, boolean replaceEnd, boolean useWipes)
 	{
 		if(endGcode != null)
 		{
@@ -123,14 +127,15 @@ public class DualStrusionWorker {
 		prepGcode(primary_lines);
 		prepGcode(secondary_lines);
 
-		primary_lines = replaceToolHeadReferences(primary_lines, Toolheads.Primary);
-		secondary_lines = replaceToolHeadReferences(secondary_lines, Toolheads.Secondary);
+		primary_lines = replaceToolHeadReferences(primary_lines, Toolheads.PRIMARY);
+		secondary_lines = replaceToolHeadReferences(secondary_lines, Toolheads.SECONDARY);
 		getTemps(primary_lines, secondary_lines);
 		stripStartEnd(primary_lines, replaceStart, replaceEnd);
 		stripStartEnd(secondary_lines, true, true);
 		//writeArrayListtoFile(primary_lines, new File("/home/makerbot/baghandle/bh1stripped.gcode"));
 		//writeArrayListtoFile(secondary_lines, new File("/home/makerbot/baghandle/bh0stripped.gcode"));
-		master_layer = Layer_Helper.doMerge(primary_lines, secondary_lines, false);
+		LayerHelper helper = new LayerHelper(primary_lines, secondary_lines, false, useWipes); 
+		master_layer = helper.mergeLayers();
 		
 		replaceStartEnd(master_layer);
 		modifyTempReferences(startGcode);
@@ -167,19 +172,24 @@ public class DualStrusionWorker {
 	}
 	public static void changeToolHead(File source, int Toolhead)
 	{
+		startGcode = readFiletoArrayList(new File("DualStrusion_Snippets/start.gcode"));
+		endGcode = readFiletoArrayList(new File("DualStrusion_Snippets/end.gcode"));
 		ArrayList<String> changeMe = readFiletoArrayList(source);
-		Toolheads t = Toolheads.Secondary;
+		stripStartEnd(changeMe, true, true);
+
+		Toolheads t = Toolheads.SECONDARY;
 		if(Toolhead == 0)
 		{
 			System.out.println("hit0");
-			t = Toolheads.Secondary;
+			t = Toolheads.SECONDARY;
 		}
 		else if(Toolhead == 1)
 		{
 			System.out.println("hit1");
 
-			t = Toolheads.Primary;	
+			t = Toolheads.PRIMARY;	
 		}
+		replaceStartEnd(changeMe);
 		changeMe = replaceToolHeadReferences(changeMe, t);
 		printArrayList(new ArrayList(changeMe.subList(0,15)));
 		writeArrayListtoFile(changeMe, source);
@@ -228,7 +238,7 @@ public class DualStrusionWorker {
 				{
 					s = s.substring(0, firstparens);
 				}
-				if(desired_toolhead.equals(Toolheads.Secondary))
+				if(desired_toolhead.equals(Toolheads.SECONDARY))
 				{
 					if(s.matches(".* "))
 					{
@@ -239,7 +249,7 @@ public class DualStrusionWorker {
 						s = s + (" T0");
 					}
 				}
-				else if(desired_toolhead.equals(Toolheads.Primary))
+				else if(desired_toolhead.equals(Toolheads.PRIMARY))
 				{
 					if(s.matches(".* "))
 					{

@@ -169,11 +169,14 @@ public class ToolpathGeneratorFactory {
 				supportPref.addOption("Full support", new SkeinforgeOption("raft.csv","Exterior Only", "false"));
 				
 				prefs.add(supportPref);
+
+				PrintOMatic printOMatic = new PrintOMatic();
+				prefs.add(printOMatic);
 				
 				return prefs;
 			}
 		};
-
+		
 		class Skeinforge44 extends SkeinforgeGenerator {
 			public File getDefaultSkeinforgeDir() {
 				return Base.getApplicationFile("skein_engines/skeinforge-44/skeinforge_application");
@@ -190,23 +193,22 @@ public class ToolpathGeneratorFactory {
 				return prefs;
 			}
 		};
-
-		list.add(new ToolpathGeneratorDescriptor("Skeinforge (standard)", 
-				"This is the standard version of skeinforge that has shipped with "+
-				"ReplicatorG since 0016.", Skeinforge6.class));
-		if((new Skeinforge44()).getDefaultSkeinforgeDir().exists())
-			list.add(new ToolpathGeneratorDescriptor("Skeinforge (44)", 
-				"This is the most recent version of skeinforge.", Skeinforge44.class));
-		if((new Skeinforge40()).getDefaultSkeinforgeDir().exists())
-			list.add(new ToolpathGeneratorDescriptor("Skeinforge (40)", 
-				"This is a version of skeinforge.", Skeinforge40.class));
+		
 		if((new Skeinforge35()).getDefaultSkeinforgeDir().exists())
 			list.add(new ToolpathGeneratorDescriptor("Skeinforge (35)", 
-				"This a recent version of skeinforge.", Skeinforge35.class));
+				"This is a decent version of skeinforge.", Skeinforge35.class));
+		if((new Skeinforge40()).getDefaultSkeinforgeDir().exists())
+			list.add(new ToolpathGeneratorDescriptor("Skeinforge (40) - experimental", 
+				"This is a recent version of skeinforge.", Skeinforge40.class));
+		if((new Skeinforge44()).getDefaultSkeinforgeDir().exists())
+			list.add(new ToolpathGeneratorDescriptor("Skeinforge (44) - experimental", 
+				"This is an experimental version of skeinforge.", Skeinforge44.class));
 		if((new Skeinforge31()).getDefaultSkeinforgeDir().exists())
 			list.add(new ToolpathGeneratorDescriptor("Skeinforge (31)", 
 				"This is an old version of skeinforge.", Skeinforge31.class));
-		
+		if((new Skeinforge6()).getDefaultSkeinforgeDir().exists())
+			list.add(new ToolpathGeneratorDescriptor("Skeinforge (6)", 
+				"This is an old version of skeinforge.", Skeinforge6.class));
 		
 		return list;
 	}

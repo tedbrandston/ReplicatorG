@@ -51,6 +51,7 @@ package replicatorg.app;
 import java.util.EnumSet;
 import java.util.LinkedList;
 import java.util.Queue;
+import java.util.logging.Level;
 
 import javax.vecmath.Point3d;
 
@@ -378,9 +379,18 @@ public class GCodeParser {
 		// change tool request!  Use M6 for that.
 		// M6 was historically used to wait for toolheads to get up to temperature, so
 		// you may wish to avoid using M6.
-		if (gcode.hasCode('T') && driver instanceof MultiTool && ((MultiTool)driver).supportsSimultaneousTools()) {
+		if (gcode.hasCode('T') && driver instanceof MultiTool && ((MultiTool)driver).supportsSimultaneousTools())
+		{
 			commands.add(new replicatorg.drivers.commands.SelectTool((int) gcode.getCodeValue('T')));
 			tool = (int) gcode.getCodeValue('T');
+		}
+		
+		// handle unrecognised GCode
+		if(GCodeEnumeration.getGCode("M", (int)gcode.getCodeValue('M')) == null)
+		{
+			String message = "Unrecognized MCode! M" + (int)gcode.getCodeValue('M');
+			Base.logger.log(Level.SEVERE, message);
+			throw new GCodeException(message);
 		}
 		
 		switch (GCodeEnumeration.getGCode("M", (int)gcode.getCodeValue('M'))) {
@@ -555,11 +565,17 @@ public class GCodeParser {
 			break;
 		// turn AutomatedBuildPlatform on
 		case M106:
-			commands.add(new replicatorg.drivers.commands.ToggleAutomatedBuildPlatform(true));
+			if(driver.hasAutomatedBuildPlatform())
+				commands.add(new replicatorg.drivers.commands.ToggleAutomatedBuildPlatform(true));
+			else
+				commands.add(new replicatorg.drivers.commands.EnableFan());
 			break;
 		// turn AutomatedBuildPlatform off
 		case M107:
-			commands.add(new replicatorg.drivers.commands.ToggleAutomatedBuildPlatform(false));
+			if(driver.hasAutomatedBuildPlatform())
+				commands.add(new replicatorg.drivers.commands.ToggleAutomatedBuildPlatform(false));
+			else
+				commands.add(new replicatorg.drivers.commands.DisableFan());
 			break;
 		// set max extruder speed, RPM
 		case M108:
@@ -625,6 +641,23 @@ public class GCodeParser {
 			if (gcode.hasCode('S')) {
 				commands.add(new replicatorg.drivers.commands.SetServo(1, gcode.getCodeValue('S')));
 			}
+			break;
+		// Start data capture
+		case M310:
+			commands.add(new replicatorg.drivers.commands.WaitUntilBufferEmpty());
+			commands.add(new replicatorg.drivers.commands.StartDataCapture(gcode.getComment()));
+			break;
+			
+		// Stop data capture
+		case M311:
+			commands.add(new replicatorg.drivers.commands.WaitUntilBufferEmpty());
+			commands.add(new replicatorg.drivers.commands.StopDataCapture());
+			break;
+
+		// Log a note to the data capture store
+		case M312:
+			commands.add(new replicatorg.drivers.commands.WaitUntilBufferEmpty());
+			commands.add(new replicatorg.drivers.commands.DataCaptureNote(gcode.getComment()));
 			break;
 		default:
 			throw new GCodeException("Unknown M code: M" + (int) gcode.getCodeValue('M'));
@@ -714,16 +747,48 @@ public class GCodeParser {
 		}
 		
 
-		GCodeEnumeration gCode = GCodeEnumeration.getGCode("G", (int)gcode.getCodeValue('G'));
+		GCodeEnumeration codeEnum = GCodeEnumeration.getGCode("G", (int)gcode.getCodeValue('G'));
 
-		switch (gCode) {
-		// Linear Interpolation
-		// these are basically the same thing.
+		// handle unrecognised GCode
+		if(codeEnum == null)
+		{
+			String message = "Unrecognized GCode! G" + (int)gcode.getCodeValue('G');
+			Base.logger.log(Level.SEVERE, message);
+			throw new GCodeException(message);
+		}
+		
+		switch (codeEnum) {
+		// these are basically the same thing, but G0 is supposed to do it as quickly as possible.
+		// Rapid Positioning
 		case G0:
-			commands.add(new replicatorg.drivers.commands.SetFeedrate(feedrate));
+			if (gcode.hasCode('F')) {
+				// Allow user to explicitly override G0 feedrate if they so desire.
+				commands.add(new replicatorg.drivers.commands.SetFeedrate(feedrate));
+			} else {
+				// Compute the most rapid possible rate for this move.
+				Point5d diff = driver.getCurrentPosition(false);
+				diff.sub(temp);
+				diff.absolute();
+				double length = diff.length();
+				double selectedFR = Double.MAX_VALUE;
+				Point5d maxFR = driver.getMaximumFeedrates();
+				// Compute the feedrate using assuming maximum feed along each axis, and select
+				// the slowest option.
+				for (int idx = 0; idx < 3; idx++) {
+					double axisMove = diff.get(idx);
+					if (axisMove == 0) { continue; }
+					double candidate = maxFR.get(idx)*length/axisMove;
+					if (candidate < selectedFR) {
+						selectedFR = candidate;
+					}
+				}
+				// Add a sane default for the null move, just in case.
+				if (selectedFR == Double.MAX_VALUE) { selectedFR = maxFR.get(0); }  
+				commands.add(new replicatorg.drivers.commands.SetFeedrate(selectedFR));
+			}				
 			commands.add(new replicatorg.drivers.commands.QueuePoint(temp));
 			break;
-		// Rapid Positioning
+		// Linear Interpolation
 		case G1:
 			// set our target.
 			commands.add(new replicatorg.drivers.commands.SetFeedrate(feedrate));
@@ -743,7 +808,7 @@ public class GCodeParser {
 				center.setY(current.y() + jVal);
 
 				// Get the points for the arc
-				if (gCode == GCodeEnumeration.G2)
+				if (codeEnum == GCodeEnumeration.G2)
 					commands.addAll(drawArc(center, temp, true));
 				else
 					commands.addAll(drawArc(center, temp, false));

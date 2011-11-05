@@ -79,6 +79,7 @@ import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JList;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
@@ -86,6 +87,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JRadioButtonMenuItem;
+import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
@@ -104,6 +106,7 @@ import net.iharder.dnd.FileDrop;
 import net.miginfocom.swing.MigLayout;
 import replicatorg.app.Base;
 import replicatorg.app.Base.InitialOpenBehavior;
+import replicatorg.app.GCodeEnumeration;
 import replicatorg.app.MRUList;
 import replicatorg.app.syntax.JEditTextArea;
 import replicatorg.app.syntax.PdeKeywords;
@@ -159,7 +162,7 @@ ToolpathGenerator.GeneratorListener
 
 	static final String WINDOW_TITLE = "ReplicatorG" + " - "
 	+ Base.VERSION_NAME;
-	
+
 
 	final static String MODEL_TAB_KEY = "MODEL";
 	final static String GCODE_TAB_KEY = "GCODE";
@@ -305,7 +308,9 @@ ToolpathGenerator.GeneratorListener
 		menubar.add(buildEditMenu());
 		menubar.add(buildGCodeMenu());
 		menubar.add(buildMachineMenu());
-
+		menubar.add(buildThingiverseMenu());
+		menubar.add(buildHelpMenu());
+		
 		setJMenuBar(menubar);
 
 		Container pane = getContentPane();
@@ -546,7 +551,7 @@ ToolpathGenerator.GeneratorListener
 				// put the model on the platform.
 				getPreviewPanel().getModel().putOnPlatform();
 			}
-			
+
 
 		}
 
@@ -567,7 +572,7 @@ ToolpathGenerator.GeneratorListener
 		ToolpathGeneratorThread tgt = new ToolpathGeneratorThread(this, generator, build);
 		tgt.addListener(this);
 		tgt.start();
-		
+
 	}
 
 
@@ -632,6 +637,8 @@ ToolpathGenerator.GeneratorListener
 			serialMenu.add(item);
 		}
 		if (names.isEmpty()) {
+			// Be aware that there is code in machineStateChanged that relies on this string
+			// I know it's a hack, but it works
 			JMenuItem item = new JMenuItem("No serial ports detected");
 			item.setEnabled(false);
 			serialMenu.add(item);
@@ -751,6 +758,99 @@ ToolpathGenerator.GeneratorListener
 		return menu;
 	}
 
+	/* Creates a menu item 'Thingiverse' 
+	 * @returns a JMenu populated with Thingiverse items
+	 */
+	protected JMenu buildThingiverseMenu()
+	{
+		JMenuItem item;
+		JMenu menu = new JMenu("Thingiverse");
+		
+		item = new JMenuItem("What's New?");
+		item.addActionListener( new ActionListener(){
+			//do bare bones launch
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				if(java.awt.Desktop.isDesktopSupported())
+				{
+					try {
+							java.awt.Desktop.getDesktop().browse(new java.net.URI("http://www.thingiverse.com/newest?source=repg"));
+					} catch (IOException e) {
+						Base.logger.log(Level.WARNING, "Could not load URL.");
+					} catch (java.net.URISyntaxException e) {
+							Base.logger.log(Level.WARNING, "bad URI");
+					}
+				}
+			}
+		});
+		menu.add(item);
+		
+		item = new JMenuItem("What's Popular?");
+		item.addActionListener( new ActionListener(){
+			//do bare bones launch
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				if(java.awt.Desktop.isDesktopSupported())
+				{
+					try {
+						java.awt.Desktop.getDesktop().browse(new java.net.URI("http://www.thingiverse.com/popular?source=repg"));
+					} catch (IOException e) {
+						Base.logger.log(Level.WARNING, "Could not load URL.");
+					} catch (java.net.URISyntaxException e) {
+							Base.logger.log(Level.WARNING, "bad URI");
+					}
+				}
+			}
+		});
+		menu.add(item);
+		
+		
+		return menu;
+	}
+
+	/*
+	 * Creates a menu item 'Help'
+	 * @returrns a JMenu Item containing help items
+	 */
+	protected JMenu buildHelpMenu()
+	{
+		JMenuItem item;
+		JMenu menu = new JMenu("Help");
+		
+		item = new JMenuItem("Offline Documentation");
+		item.addActionListener(new ActionListener(){
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				// open up the local copy of replicat.org
+				if(java.awt.Desktop.isDesktopSupported())
+				{
+					try {
+						File toOpen = new File("docs/replicat.org/index.html");
+						java.awt.Desktop.getDesktop().browse(toOpen.toURI());
+					} catch (IOException e) {
+						Base.logger.log(Level.WARNING, "Could not load offline documentation.");
+					}
+				}
+			}
+		});
+		menu.add(item);
+		
+		item = new JMenuItem("Supported GCodes");
+		item.addActionListener(new ActionListener(){
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				//Display the auto-generated list of codes our enumeration recognises
+				Object[] codes = GCodeEnumeration.getDocumentation().toArray();
+				JScrollPane displayPane = new JScrollPane(new JList(codes));
+				JOptionPane.showConfirmDialog(MainWindow.this, displayPane,
+						"Supported GCodes", JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE);
+			}
+		});
+		menu.add(item);
+		
+		return menu;
+	}
+	
 	private JMenuItem buildMenuFromPath(File path, Pattern pattern) {
 		if (!path.exists()) { return null; }
 		if (path.isDirectory()) {
@@ -937,7 +1037,7 @@ ToolpathGenerator.GeneratorListener
 		changeToolheadMenu.add(left);
 		changeToolheadMenu.add(right);
 		menu.add(changeToolheadMenu);
-		dualstrusionItem = newJMenuItem("Dual Extrusion", 'D');
+		dualstrusionItem = newJMenuItem("Dual Extrusion (experimental)", 'D');
 		dualstrusionItem.addActionListener(new ActionListener()
 		{
 			public void actionPerformed(ActionEvent arg0)
@@ -948,7 +1048,7 @@ ToolpathGenerator.GeneratorListener
 		menu.add(dualstrusionItem);
 		setDualStrusionGUI();
 
-		combineItem = new JMenuItem("Row combine");
+		combineItem = new JMenuItem("Row combine (experimental)");
 		combineItem.addActionListener(new ActionListener(){
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
@@ -1085,28 +1185,49 @@ ToolpathGenerator.GeneratorListener
 			}
 		}
 	}
+	public boolean isDualDriver()
+	{
+		String mname = Base.preferences.get("machine.name", "error");
+
+		try
+		{
+			MachineLoader ml = new MachineLoader();
+			ml.load(mname);
+			System.out.println(ml.getMachine().getModel().getTools().size());
+			if(ml.getMachine().getModel().getTools().size() > 1)
+			{
+				return true;
+			}
+		}
+		catch(NullPointerException e)
+		{
+			System.err.println("Errorz");
+			e.printStackTrace();
+		}
+		return false;
+	}
 	private void setDualStrusionGUI()
 	{
-		dualstrusionItem.setEnabled(true);
+		dualstrusionItem.setEnabled(false);
 		changeToolheadMenu.setEnabled(false);
-		
+
 		String mname = Base.preferences.get("machine.name", "error");
 		System.out.println(mname);
 		try
 		{
-		MachineLoader ml = new MachineLoader();
-		ml.load(mname);
-		System.out.println(ml.getMachine().getModel().getTools().size());
-		if(ml.getMachine().getModel().getTools().size() > 1)
-		{
-			dualstrusionItem.setEnabled(true);
-			changeToolheadMenu.setEnabled(true);
-			
-		}
+			MachineLoader ml = new MachineLoader();
+			ml.load(mname);
+			System.out.println(ml.getMachine().getModel().getTools().size());
+			if(ml.getMachine().getModel().getTools().size() > 1)
+			{
+				dualstrusionItem.setEnabled(true);
+				changeToolheadMenu.setEnabled(true);
+
+			}
 		}
 		catch(NullPointerException e)
 		{
-			
+
 		}
 	}
 	class MachineMenuListener implements ActionListener {
@@ -1657,10 +1778,15 @@ ToolpathGenerator.GeneratorListener
 			setEditorBusy(true);
 
 			// start our building thread.
-
 			message("Building...");
 			buildStart = new Date();
-			machineLoader.getMachine().buildDirect(new JEditTextAreaSource(textarea));
+			//doing this check allows us to recover from pre-build stuff
+			if(machineLoader.getMachine().buildDirect(new JEditTextAreaSource(textarea)) == false)
+			{
+				buildStart = null;
+				setEditorBusy(false);
+				building = false;
+			}
 		}
 	}
 
@@ -1878,7 +2004,8 @@ ToolpathGenerator.GeneratorListener
 		// Enable the machine select and serial select menus only when the machine is not connected
 		for (int itemIndex = 0; itemIndex < serialMenu.getItemCount(); itemIndex++) { 
 			JMenuItem item = serialMenu.getItem(itemIndex);
-			if  (item!= null) {
+			// The ignore case is a little hacky, and is based on code in reloadSerialMenu()
+			if  (item != null && !("No serial ports detected".equals(item.getText()))) {
 				item.setEnabled(!evt.getState().isConnected());
 			}
 		}
@@ -2074,7 +2201,6 @@ ToolpathGenerator.GeneratorListener
 				dsw = new DualStrusionWindow(getBuild().getMainFilePath());	
 			else
 				dsw = new DualStrusionWindow();
-			dsw.createAndShow();
 
 			//File f = dsw.getCombined();
 			//if(f != null)
@@ -2195,7 +2321,7 @@ ToolpathGenerator.GeneratorListener
 					+ "b { font: 13pt \"Lucida Grande\" }"
 					+ "p { font: 11pt \"Lucida Grande\"; margin-top: 8px }"
 					+ "</style> </head>"
-					+ "<b>Do you want to save changes to this sketch<BR>"
+					+ "<b>Do you want to save changes to this file<BR>"
 					+ " before closing?</b>"
 					+ "<p>If you don't save, your changes will be lost.",
 					JOptionPane.QUESTION_MESSAGE);
@@ -2790,6 +2916,7 @@ ToolpathGenerator.GeneratorListener
 	}
 
 	public void generationComplete(Completion completion, Object details) {
+
 		// if success, update header and switch to code
 		if (completion == Completion.SUCCESS) {
 			if (build.getCode() != null) {
@@ -2797,35 +2924,45 @@ ToolpathGenerator.GeneratorListener
 			}
 			buttons.updateFromMachine(machineLoader.getMachine());
 			updateBuild();
-			System.out.println("Done?");
-			String extruderChoice = Base.preferences.get("replicatorg.skeinforge.printOMatic.toolheadOrientation", "does not exist");
-			String mname = Base.preferences.get("machine.name", "error");
-			System.out.println(mname);
-			try
+			
+			// So I've just discovered that this isDualDriver does the same check as we're doing with toolCount below
+			// This is a mess and should be tidied up. When is this used?
+			if(isDualDriver())
 			{
-				System.out.println(machineLoader.getMachine().getModel().getTools().size());
-				if(machineLoader.getMachine().getModel().getTools().size() > 1)
+				String extruderChoice = Base.preferences.get("replicatorg.skeinforge.printOMatic.toolheadOrientation", "does not exist");
+				boolean pomOn = Base.preferences.getBoolean("replicatorg.skeinforge.printOMatic.enabled", false);
+				
+				try
 				{
-					System.out.println(extruderChoice);
-					if(extruderChoice.equalsIgnoreCase("left"))
+					int toolCount = machineLoader.getMachine().getModel().getTools().size();
+					Base.logger.finer("tool size" + toolCount );
+					if( toolCount > 1 && pomOn)
 					{
-						System.out.println("performing left ops");
-						DualStrusionWorker.changeToolHead(build.getCode().file, 1);
+						Base.logger.fine(extruderChoice);
+						if(extruderChoice.equalsIgnoreCase("left"))
+						{
+							Base.logger.finer("performing left ops");
+							DualStrusionWorker.changeToolHead(build.getCode().file, 1);
 							handleOpenFile(build.getCode().file);
-
+						}
+						else if(extruderChoice.equalsIgnoreCase("right"))
+						{
+							Base.logger.finer("performing right ops");
+							DualStrusionWorker.changeToolHead(build.getCode().file, 0);
+							handleOpenFile(build.getCode().file);
+						}
 					}
-					else if(extruderChoice.equalsIgnoreCase("right"))
+					else if(pomOn)
 					{
-						System.out.println("performing right ops");
 						DualStrusionWorker.changeToolHead(build.getCode().file, 0);
 						handleOpenFile(build.getCode().file);
-
 					}
 				}
-			}
-			catch(NullPointerException e)
-			{
-
+				catch(NullPointerException e)
+				{
+					//we don't need a message here?
+					Base.logger.fine("error doing toolhead update in generationComplete" + e);
+				}
 			}
 		}
 	}

@@ -576,7 +576,7 @@ class SkeinforgeRepository:
 	def execute(self):
 		'Skeinforge button has been clicked.'
 		fileNames = skeinforge_polyfile.getFileOrDirectoryTypesUnmodifiedGcode(self.fileNameInput.value, fabmetheus_interpret.getImportPluginFileNames(), self.fileNameInput.wasCancelled)
-                window = None
+		window = None
 		for fileName in fileNames:
 			window = skeinforge_craft.writeOutput(fileName)
                 return window
