@@ -4,14 +4,18 @@ import java.awt.Frame;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.TreeMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Collection;
 import java.util.logging.Level;
 
 import javax.swing.DefaultComboBoxModel;
@@ -31,14 +35,38 @@ import replicatorg.plugin.toolpath.ToolpathGenerator;
 
 public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 
-	boolean configSuccess = false;
-	String profile = null;
-	List <SkeinforgePreference> preferences;
-	Map <String, Profile> profiles;
+	/**
+	 * A ProfileWatcher instance describes an object that wishes to be notified when the selected profile changes.
+	 * @author giseburt
+	 */
+	public interface ProfileWatcher {
+		public void profileChanged(Profile newProfile);
+	}
+	
+	abstract public class ProfileKeyWatcher {
+		private String subKey = null;
+		void ProfileKeyWatcher(String key) {
+			subKey = key;
+		}
+		
+		public void profileChanged(Profile newProfile) {
+			String key = subKey;
 
-	// "skein_engines/skeinforge-0006","sf_profiles");
+			profileKeyChanged(newProfile.getValueForPlastic(key));
+		}
+		
+		abstract void profileKeyChanged(String value);
+	}
+	
+	boolean configSuccess = false;
+	Profile profile = null;
+	List <SkeinforgePreference> preferences;
+	private TreeMap <String, Profile> profiles = new TreeMap<String, Profile>();
+	List <ProfileWatcher> profileWatchers = new LinkedList<ProfileWatcher>();
+
 	public SkeinforgeGenerator() {
 		preferences = getPreferences();
+		getSelectedProfile();
 	}
 
 	public boolean runSanityChecks() {
@@ -64,27 +92,97 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 		return (result == JOptionPane.OK_OPTION);
 	}
 	
-	static public String getSelectedProfile() {
+	static public String getSelectedProfileName() {
 		String name = Base.preferences.get("replicatorg.skeinforge.profile", "");
+		Base.logger.log(Level.FINEST, "Selected profile name: " + name);
 		return name;
 	}
 
-	static public void setSelectedProfile(String name) {
-		Base.preferences.put("replicatorg.skeinforge.profile", name);
+	public Profile getSelectedProfile() {
+		if (profile==null) {
+			if (profiles.size() == 0)
+				getProfiles();
+			profile = profiles.get(getSelectedProfileName());
+			notifyProfileWatchers();
+		}
+		Base.logger.log(Level.FINEST, "Found a profile: " + (profile != null ? profile.getFullPath() : "NULL"));
+		return profile;
 	}
 
+	public void setSelectedProfile(String name) {
+		Profile namedProfile = profiles.get(name);
+		if (namedProfile != null) {
+			Base.preferences.put("replicatorg.skeinforge.profile", name);
+			profile = namedProfile;
+			notifyProfileWatchers();
+		}
+	}
+	
+	public void addProfileWatcher(ProfileWatcher aWatcher) {
+		profileWatchers.add(aWatcher);
+		aWatcher.profileChanged(profile);
+	}
+	
+	public void removeProfileWatcher(ProfileWatcher aWatcher) {
+		profileWatchers.remove(aWatcher);
+	}
+	
+	public void notifyProfileWatchers() {
+		if (profile == null)
+			return;
+		for (ProfileWatcher p : profileWatchers) {
+			p.profileChanged(profile);
+		}
+	}
+	
 	/**
 	 * A Profile describes both a profile and all of it's settings.
-	 * @author phooky
+	 * @author giseburt
 	 */
-	static class Profile implements Comparable<Profile> {
+	public static class Profile implements Comparable<Profile> {
 		private File profileFile;
 		private Map<String,String> settingMap = new HashMap<String,String>();
-		private Map<String,Long> moduleModificationMap = new HashMap<String,Long>();
+		private Map<String,String> overrideMap = new HashMap<String,String>();
+		// subProfiles -- such as ABS, PLA, PVA, etc. These have arbitray names, BTW.
+		private LinkedList<String> subProfiles = new LinkedList<String>();
+		
+		// In order to save the profile again, we need to store the headers and key order for each file
+		private class ProfileSubfileStore {
+			public File file = null;
+			public long lastModified = 0L;
+			// store the name of the subprofile to easily reconstruct the full key
+			public String subprofileName = null;
+			public String header = "";
+			public LinkedList<String> keyOrder = new LinkedList<String>();
+			
+			ProfileSubfileStore(File file, String subprofileName) {
+				this.file = file;
+				this.subprofileName = subprofileName;
+			}
+			
+			public void reset() {
+				keyOrder.clear();
+				header = "";
+			}
+			
+			public void addToHeader(String lines) {
+				header += lines + "\n";
+			}
+			
+			public void addKey(String key) {
+				keyOrder.add(key);
+			}
+			
+			public void setLastModified(long lastModified) {
+				this.lastModified = lastModified;
+			}
+		}
+		private LinkedList<ProfileSubfileStore> subFileStores = new LinkedList<ProfileSubfileStore>();
+		private Map<String,ProfileSubfileStore> moduleModificationMap = new HashMap<String,ProfileSubfileStore>();
 
 		public Profile(String fullPath) {
 			this.profileFile = new File(fullPath);
-			this.scanProfileFolder(profileFile, (String)null);
+			this.scanProfileFolder(profileFile, (String)null, 0);
 		}
 
 		public String getFullPath() {
@@ -96,47 +194,83 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 		}
 		
 		public String getValue(String module, String key) {
-			return settingMap.get(module+":"+key);
+			return getValue(module+":"+key);
+		}
+
+		public String getValue(String key) {
+			return overrideMap.containsKey(key) ? overrideMap.get(key) : settingMap.get(key);
+		}
+
+		public String getValueForPlastic(String key) {
+			String value = getValue(key);
+			if (value == null) {
+				String profilePlastic = getValue("extrusion.csv:Profile Selection:");
+				// Base.logger.log(Level.FINEST, "Profile Selection: " + profilePlastic);
+				if (profilePlastic != null)
+					value = getValue(profilePlastic + "/" + key);
+			}
+			return value;
 		}
 		
-		public void getValue(String module, String key, String value) {
-			settingMap.put(module+":"+key, value);
+		public void setValue(String module, String key, String value) {
+			setValue(module+":"+key, value);
+		}
+
+		public void setValue(String key, String value) {
+			overrideMap.put(key, value);
+		}
+
+		public void setValueForPlastic(String key, String value) {
+			String profilePlastic = getValue("extrusion.csv:Profile Selection:");
+			// Base.logger.log(Level.FINEST, "Profile Selection: " + profilePlastic);
+			// Base.logger.log(Level.FINEST, "Setting value for key: " + (profilePlastic!=null ? profilePlastic + "/" : "") + key + " == " + value);
+			setValue((profilePlastic!=null ? profilePlastic + "/" : "") + key, value);
+		}
+
+		public boolean equals(Profile o) {
+			return profileFile.getName().equals(o.profileFile.getName());
 		}
 
 		public int compareTo(Profile o) {
 			return profileFile.getName().compareTo(o.profileFile.getName());
 		}
-
-		public boolean equals(String o) {
-			return profileFile.getName().equals(o);
-		}
 		
 		public Boolean checkForUpdate() {
-			return scanProfileFolder(profileFile, (String)null);
+			subProfiles.clear();
+			return scanProfileFolder(profileFile, (String)null, 0);
 		}
 		
-		private Boolean scanProfileFolder(File basePath, String subprofile) {
+		private Boolean scanProfileFolder(File basePath, String subprofile, int depth) {
 			Boolean updated = false;
 			for (String subpath : basePath.list()) {
 				File subFile = new File(basePath, subpath);
 				if (subFile.isDirectory()) {
-					if (subFile.getName().matches("^(profiles|extrusion)$")) {
-						scanProfileFolder(subFile, (String)null);
-					} else {
-						scanProfileFolder(subFile, subFile.getName());
+					if ((depth == 0 && subFile.getName().matches("^(profiles)$")) || (depth == 1 && subFile.getName().matches("^(extrusion)$"))) {
+						scanProfileFolder(subFile, (String)null, depth+1);
+					} else if (depth == 2) {
+						subProfiles.add(subFile.getName());
+						scanProfileFolder(subFile, subFile.getName(), depth+1);
 					}
 				}
 				else if (subFile.getName().matches(".*\\.csv$")) {
+					ProfileSubfileStore store = null;
 					if (moduleModificationMap.containsKey(subprofile+"/"+subFile.getName())) {
-						if (moduleModificationMap.get(subprofile+"/"+subFile.getName())<subFile.lastModified()) {
-							moduleModificationMap.put(subprofile+"/"+subFile.getName(), subFile.lastModified());
+						store = moduleModificationMap.get(subprofile+"/"+subFile.getName());
+						if (store.lastModified<subFile.lastModified()) {
+							store.setLastModified(subFile.lastModified());
+							store.reset();
 							updated = true;
+						} else {
+							continue;
 						}
 					} else {
-						moduleModificationMap.put(subprofile+"/"+subFile.getName(), subFile.lastModified());
+						store = new ProfileSubfileStore(subFile, subprofile);
+						store.setLastModified(subFile.lastModified());
+						subFileStores.add(store);
+						moduleModificationMap.put(subprofile+"/"+subFile.getName(), store);
 						updated = true;
 					}
-					Base.logger.log(Level.FINEST, "\t"+subprofile+"/"+subFile.getName());
+					
 					BufferedReader in = null;
 					try {
 						in = new BufferedReader(new FileReader(subFile));
@@ -154,16 +288,56 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 						}
 						if (line == null)
 							break;
-						if (skip-- > 0) // skip the comment and the header
+						if (skip-- > 0) {// store the comment and the header to the ProfileSubfileStore
+							store.addToHeader(line);
 							continue;
+						} 
 						String[] tokens = line.split("\t");
-						// Base.logger.log(Level.FINEST, subprofile+"/"+subFile.getName()+":"+line);
-						// Base.logger.log(Level.FINEST, (subprofile==null?"":subprofile+"/")+subFile.getName()+":"+tokens[0]+"=="+(tokens.length>1?tokens[1]:null));
-						settingMap.put((subprofile==null?"":subprofile+"/")+subFile.getName()+":"+tokens[0], (tokens.length>1?tokens[1]:null));
+						String key = (subprofile==null?"":subprofile+"/")+subFile.getName()+":"+tokens[0];
+						settingMap.put(key, (tokens.length>1?tokens[1]:null));
+						store.addKey(tokens[0]);
 					}
 				}
 			}
 			return updated;
+		}
+		
+		public List<String> getSubProfiles() {
+			return subProfiles;
+		}
+		
+		public void save() {
+			for (ProfileSubfileStore store : subFileStores) {
+				boolean isDirty = false;
+				// Since only a few files will likely be effected, we search
+				// the overrideMap to see if we need to save this file
+				String keyPrefix = (store.subprofileName != null ? store.subprofileName + "/" : "") + store.file.getName() + ":";
+				for (String key : overrideMap.keySet()) {
+					if (key.startsWith(keyPrefix)) {
+						isDirty = true;
+						break;
+					}
+				}
+				
+				if (isDirty) {
+					try {
+						Base.logger.log(Level.SEVERE, "Saving file: " + store.file);
+						BufferedWriter writer = new BufferedWriter(new FileWriter(store.file));
+						Base.logger.log(Level.FINEST, "\t" + store.header);
+						writer.write(store.header);
+						for (String key : store.keyOrder) {
+							writer.write(key+"\t");
+							String value = getValue(keyPrefix+key);
+							writer.write((value == null ? "" : value) + "\n");
+							Base.logger.log(Level.FINEST, "\t" + key + "==" + (value == null ? "<null>" : value));
+						}
+						writer.close();
+					} catch (IOException ioe) {
+						Base.logger.log(Level.SEVERE, "Couldn't write to: " + store.file, ioe);
+					}
+					
+				}
+			}
 		}
 	}
 
@@ -172,10 +346,13 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 			for (String subpath : dir.list()) {
 				File subDir = new File(dir, subpath);
 				if (subDir.isDirectory()) {
-					if (profiles.containsKey(subDir.getAbsolutePath()))
-						profiles.get(subDir.getAbsolutePath()).checkForUpdate();
-					else
-						profiles.put(subDir.getAbsolutePath(), new Profile(subDir.getAbsolutePath()));
+					Base.logger.log(Level.FINEST, "Profile search: " + subDir.getName());
+					if (profiles.containsKey(subDir.getName()))
+						profiles.get(subDir.getName()).checkForUpdate();
+					else {
+						Base.logger.log(Level.FINEST, "Adding profile: " + subDir.getAbsolutePath());
+						profiles.put(subDir.getName(), new Profile(subDir.getAbsolutePath()));
+					}
 				}
 			}
 		}
@@ -183,16 +360,17 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 
 	abstract public File getUserProfilesDir();
 
-	List<Profile> getProfiles() {
+	Collection<Profile> getProfiles() {
 		// Get default installed profiles
 		File dir = new File(getSkeinforgeDir(), "prefs");
 		getProfilesIn(dir);
 		dir = getUserProfilesDir();
 		getProfilesIn(dir);
-		// Collections.sort(profiles);
 		return profiles.values();
 	}
-
+	
+	
+	
 	
 	/**
 	 * A SkeinforgeOption instance describes a single preference override to pass to skeinforge.
@@ -253,7 +431,7 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 		public String valueSanityCheck();
 	}
 	
-	public static class SkeinforgeChoicePreference implements SkeinforgePreference {
+	public static class SkeinforgeChoicePreference implements SkeinforgePreference,ProfileWatcher {
 		private Map<String,List<SkeinforgeOption>> optionsMap = new HashMap<String,List<SkeinforgeOption>>();
 		private JPanel component;
 		private DefaultComboBoxModel model;
@@ -306,14 +484,18 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 			}
 			return new LinkedList<SkeinforgeOption>();
 		}
+		
+		public void profileChanged(Profile p) {
+			// TODO: write this
+		}
+		
 		@Override
 		public String valueSanityCheck() {
 			return null;
 		}
-
 	}
 	
-	protected static class SkeinforgeBooleanPreference implements SkeinforgePreference {
+	protected static class SkeinforgeBooleanPreference implements SkeinforgePreference,ProfileWatcher {
 		private boolean isSet;
 		private JCheckBox component;
 		private List<SkeinforgeOption> trueOptions = new LinkedList<SkeinforgeOption>();
@@ -350,6 +532,10 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 
 		public List<SkeinforgeOption> getOptions() {
 			return isSet?trueOptions:falseOptions;
+		}
+		
+		public void profileChanged(Profile p) {
+			// TODO: write this
 		}
 
 		@Override
@@ -547,11 +733,13 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 	
 	public BuildCode generateToolpath() {
 		String path = model.getPath();
+		
+		profile.save();
 
 		List<String> arguments = new LinkedList<String>();
 		// The -u makes python output unbuffered. Oh joyous day.
 		String[] baseArguments = { PythonUtils.getPythonPath(), "-u",
-				"skeinforge.py", "-p", profile };
+				"skeinforge.py", "-p", profile.getFullPath() };
 		for (String arg : baseArguments) {
 			arguments.add(arg);
 		}

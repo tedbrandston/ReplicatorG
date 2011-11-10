@@ -8,6 +8,7 @@ import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.logging.Level;
 
 import javax.swing.DefaultListModel;
@@ -53,7 +54,7 @@ class EditProfileDialog extends JDialog {
 	
 	private void loadList(JList list) {
 		list.removeAll();
-		profiles = parentGenerator.getProfiles();
+		profiles = new ArrayList(parentGenerator.getProfiles());
 		DefaultListModel model = new DefaultListModel();
 		int i=0;
 		int foundLastProfile = -1;

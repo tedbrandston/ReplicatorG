@@ -172,6 +172,7 @@ public class ToolpathGeneratorFactory {
 
 				PrintOMatic printOMatic = new PrintOMatic();
 				prefs.add(printOMatic);
+				addProfileWatcher(printOMatic);
 				
 				return prefs;
 			}
@@ -189,6 +190,7 @@ public class ToolpathGeneratorFactory {
 				
 				PrintOMatic5D printOMatic5D = new PrintOMatic5D();
 				prefs.add(printOMatic5D);
+				addProfileWatcher(printOMatic5D);
 				
 				return prefs;
 			}

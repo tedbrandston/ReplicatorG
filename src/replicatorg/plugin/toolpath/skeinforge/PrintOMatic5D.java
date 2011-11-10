@@ -7,6 +7,9 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Vector;
 import java.util.logging.Level;
+import java.text.NumberFormat;
+import java.text.DecimalFormat;
+import java.text.ParseException;
 
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JCheckBox;
@@ -20,50 +23,180 @@ import javax.swing.SwingUtilities;
 
 import net.miginfocom.swing.MigLayout;
 import replicatorg.app.Base;
-import replicatorg.app.ui.SavingTextField;
+import replicatorg.app.ui.ProfileSavingTextField;
+import replicatorg.app.ui.ProfileSavingCheckBox;
 import replicatorg.plugin.toolpath.skeinforge.SkeinforgeGenerator.SkeinforgeOption;
 import replicatorg.plugin.toolpath.skeinforge.SkeinforgeGenerator.SkeinforgePreference;
+import replicatorg.plugin.toolpath.skeinforge.SkeinforgeGenerator.Profile;
+import replicatorg.plugin.toolpath.skeinforge.SkeinforgeGenerator.ProfileWatcher;
+import replicatorg.plugin.toolpath.skeinforge.SkeinforgeGenerator.ProfileKeyWatcher;
 
-public class PrintOMatic5D implements SkeinforgePreference {
+public class PrintOMatic5D implements SkeinforgePreference,ProfileWatcher {
 	private JPanel component;
 	private JCheckBox enabled;
 	private String baseName;
+	private List<ProfileWatcher> profileWatchers = new LinkedList<ProfileWatcher>();
+		
+	abstract private class ValueSaver implements ProfileWatcher {
+		Profile profile = null;
+		DefaultComboBoxModel model = null;
+		abstract public void valueChanged(String value);
+		public void profileChanged(Profile newProfile) {
+			profile = newProfile;
+		}
+		public void setComboBoxModel(DefaultComboBoxModel model) {
+			this.model = model;
+		}
+	}
 	
+	private class KeyedValueSaver extends ValueSaver {
+		String key = null;
+
+		public KeyedValueSaver() {
+		}
+
+		public KeyedValueSaver(String key) {
+			this.key = key;
+		}
+
+		@Override
+		public void valueChanged(String value) {
+			if (profile != null) {
+				profile.setValueForPlastic(key, value);
+			}
+		}
+
+		@Override
+		public void profileChanged(Profile newProfile) {
+			super.profileChanged(newProfile);
+			String value = profile.getValueForPlastic(key);
+			if (model != null)
+				model.setSelectedItem(value);
+		}
+		
+	}
+
 	private class ComboListener implements ActionListener {
-		final String name;
+		final ValueSaver saver;
 		final DefaultComboBoxModel input;
 		
-		public ComboListener(DefaultComboBoxModel input, String name) {
+		public ComboListener(DefaultComboBoxModel input, ValueSaver saver) {
 			this.input = input;
-			this.name = name;
+			this.saver = saver;
 		}
 
 		@Override
 		public void actionPerformed(ActionEvent arg0) {
-			String value = (String)input.getSelectedItem().toString();
+			if (input.getSize() == 0)
+				return;
+
+			Object o = input.getSelectedItem();
+			String value = (o == null ? "" : (String)o.toString());
 			
-			if (name != null) {
-				Base.logger.fine("here: " + name + "=" + value);
-				Base.preferences.put(name, value);
+			if (saver != null) {
+				saver.valueChanged(value);
 			}
+		}
+	}	
+	
+	private class TextFieldPercentModifier implements ProfileSavingTextField.TextValueModifier {
+		String optionName = null;
+		final DecimalFormat numberFormat = new DecimalFormat();
+		
+		TextFieldPercentModifier(String name) {
+			optionName = name;
+			numberFormat.setMinimumFractionDigits(0);
+			numberFormat.setMaximumFractionDigits(2);
+			numberFormat.setMultiplier(100);
+		}
+		
+		public String textToShowFromValue(String value) {
+			Double number = -0.99; // clear indication of an error
+			try {
+				if (value != null)
+					number = Double.valueOf(value);
+			}
+			catch (java.lang.NumberFormatException e) {
+				Base.logger.severe("Print-O-Matic setting " + optionName + " does not contain a valid number, please correct this!");
+			}
+			return numberFormat.format(number);
+		}
+		
+		public String valueToSaveFromText(String text) {
+			Double number = -0.99; // clear indication of an error
+			try {
+				if (text != null)
+					number = (Double)numberFormat.parse(text);
+			}
+			catch (java.text.ParseException e) {
+				Base.logger.severe("Print-O-Matic setting " + optionName + " does not contain a valid number, please correct this!");
+			}
+			return number.toString();
 		}
 	}
 	
-	// Note: This could be better represented as a separate class, however we want to be able to line up
-	// the text boxes and input fields in the main print-o-matic dialog. So they stay here!
-	private void addTextParameter(JComponent target, String name, String description, String defaultValue, String toolTip) {
-		String fullName = baseName + name;
-		String value = null;
+	private class FormattedDoubleModifier implements ProfileSavingTextField.CalculatedValueModifier {
+		String optionName = null;
+		final DecimalFormat numberFormat = new DecimalFormat();
 		
-		if (fullName != null) {
-			value = Base.preferences.get(fullName, defaultValue);
-			
-			// Store it back so that we can be assured that it is set.
-			Base.preferences.put(fullName, value);
+		FormattedDoubleModifier(String name) {
+			optionName = name;
+			numberFormat.setMinimumFractionDigits(0);
+			numberFormat.setMaximumFractionDigits(4);
 		}
-		target.add(new JLabel(description));
 		
-		JTextField input = new SavingTextField(fullName, value, 10);
+		FormattedDoubleModifier(String name, int minFractionDigits, int maxFractionDigits) {
+			optionName = name;
+			numberFormat.setMinimumFractionDigits(minFractionDigits);
+			numberFormat.setMaximumFractionDigits(maxFractionDigits);
+		}
+		
+		Double getValueAsDouble(Profile profile, String key) {
+			String textValue = profile.getValueForPlastic(key);
+			Double doubleValue = null;
+			try {
+				if (textValue != null)
+					doubleValue = Double.valueOf(textValue);
+			}
+			catch (java.lang.NumberFormatException e) {
+				Base.logger.severe("Invalid numeric value: " + textValue);
+			}
+			
+			return doubleValue;
+		}
+		
+		public String profileChangedRecalc(Profile profile) {
+			Double value = getValueAsDouble(profile, optionName);
+			return numberFormat.format(value == null ? 0 : value);
+		}
+		
+		public void saveValue(String text, Profile profile) {
+			profile.setValueForPlastic(optionName, text);
+		}
+	}
+	
+	private void addTextParameter(JComponent target, String name, String description, String defaultValue, String toolTip) {
+		ProfileSavingTextField input = new ProfileSavingTextField(name, "", 10);
+		profileWatchers.add(input);
+		
+		target.add(new JLabel(description));
+		target.add(input, "wrap");
+		
+		if (description.contains("(%)")) {
+			input.setModifier(new TextFieldPercentModifier(description));
+		}
+		
+		if (toolTip != null) {
+			// TODO: This is wrong.
+			input.setToolTipText(toolTip);
+		}
+	}
+	
+	private void addTextParameter(JComponent target, ProfileSavingTextField.CalculatedValueModifier modifier, String description, String defaultValue, String toolTip) {
+		ProfileSavingTextField input = new ProfileSavingTextField(modifier, 10);
+		profileWatchers.add(input);
+		
+		target.add(new JLabel(description));
 		target.add(input, "wrap");
 		
 		if (toolTip != null) {
@@ -72,27 +205,19 @@ public class PrintOMatic5D implements SkeinforgePreference {
 		}
 	}
 	
-	private void addDropDownParameter(JComponent target, String name, String description, Vector<String> options, String toolTip) {
-		String fullName = baseName + name;
-		String value = null;
-		
-		if (fullName != null) {
-			value = Base.preferences.get(fullName, options.firstElement());
-			
-			// Store it back so that we can be assured that it is set.
-			Base.preferences.put(fullName, value);
-		}
+	private void addDropDownParameter(JComponent target, ValueSaver saver, String description, Vector<String> options, String toolTip) {
+		ValueSaver mySaver = saver;
 		target.add(new JLabel(description));
 		
 		DefaultComboBoxModel model;
 		model = new DefaultComboBoxModel(options);
-		
-		model.setSelectedItem(value);
+		ComboListener listener = new ComboListener(model, mySaver);
+		mySaver.setComboBoxModel(model);
 		
 		JComboBox input = new JComboBox(model);
 		target.add(input, "wrap");
-		
-		input.addActionListener(new ComboListener(model, fullName));
+		input.addActionListener(listener);
+		profileWatchers.add(mySaver);
 		
 		if (toolTip != null) {
 			// TODO: This is wrong.
@@ -103,24 +228,11 @@ public class PrintOMatic5D implements SkeinforgePreference {
 
 	
 	private void addBooleanParameter(JComponent target, String name, String description, boolean defaultValue, String toolTip) {
-		final String fullName = baseName + name;
-		boolean isSet = false;
-		
-		if (fullName != null) {
-			isSet = Base.preferences.getBoolean(fullName, defaultValue);
-			
-			// Store it back so that we can be assured that it is set.
-			Base.preferences.putBoolean(fullName, isSet);
-		}
 		target.add(new JLabel(description));
 		
-		final JCheckBox input = new JCheckBox("", isSet);
+		final ProfileSavingCheckBox input = new ProfileSavingCheckBox(name);
 		target.add(input, "wrap");
-		input.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent e) {
-				Base.preferences.putBoolean(fullName, input.isSelected());
-			}
-		});
+		profileWatchers.add(input);
 		
 		if (toolTip != null) {
 			// TODO: This is wrong.
@@ -128,69 +240,14 @@ public class PrintOMatic5D implements SkeinforgePreference {
 		}
 		
 	}
-	
-	
-	
-	private double getValue(String optionName) {
-		// TODO: record the default values somewhere, so that we can retrieve them here!
-		String value = Base.preferences.get(baseName + optionName, null);
-		
-		Base.logger.fine("Saved value for preference " + baseName + optionName + " is " + value);
-		
-		Double number = null;
-		
-		try {
-			number = Double.valueOf(value);
-		}
-		catch (java.lang.NumberFormatException e) {
-			Base.logger.severe("Print-O-Matic setting " + optionName + "does not contain a valid number, please correct this!");
-		}
-		
-		return number;
-	}
-	
-	private boolean getBooleanValue(String optionName) {
-		// TODO: record the default values somewhere, so that we can retrieve them here!
-		boolean value = Base.preferences.getBoolean(baseName + optionName, true);
-		
-		Base.logger.fine("Saved value for preference " + baseName + optionName + " is " + value);
-		
-		return value;
-	}
-	
-	private String getStringValue(String optionName) {
-		// TODO: record the default values somewhere, so that we can retrieve them here!
-		String value = Base.preferences.get(baseName + optionName, null);
-		
-		Base.logger.fine("Saved value for preference " + baseName + optionName + " is " + value);
-		
-		return value;
-	}
-	
-	private double getScalingFactor() {
-		// TODO: record the default values somewhere, so that we can retrieve them here!
-		String value = Base.preferences.get(baseName + "materialType", null);
-		
-		double scalingFactor = 1;
-		
-		if (value.equals("ABS")) {
-			scalingFactor = .85;
-		}
-		else if (value.equals("PLA")) {
-			scalingFactor = 1;
-		}
-		else {
-			Base.logger.severe("Couldn't determine scaling factor for material " + value + ", defaulting to 1");
-		}
-		
-		return scalingFactor;
-	}
-	
-	
+
 	JTabbedPane printOMatic5D;
+
+	boolean processingProfileChange;
 	
 	public PrintOMatic5D() {
 		component = new JPanel(new MigLayout("ins 0, fillx, hidemode 1"));
+		processingProfileChange = false;
 		
 		baseName = "replicatorg.skeinforge.printOMatic5D.";
 
@@ -220,86 +277,175 @@ public class PrintOMatic5D implements SkeinforgePreference {
 		JComponent materialPanel = new JPanel(new MigLayout("fillx"));
                 JComponent supportPanel = new JPanel(new MigLayout("fillx"));
 		
-		addTextParameter(printPanel, "infillPercent",
+		addTextParameter(printPanel, "fill.csv:Infill Solidity (ratio):",
 				"Object infill (%)", "30",
 				"0= hollow object, 100=solid object");
 		
-		addTextParameter(printPanel, "desiredLayerHeight",
-					"Layer Height (mm)", "0.35",
-					"Set the desired layer height");
+		addTextParameter(printPanel, new FormattedDoubleModifier("carve.csv:Layer Thickness (mm):", 2, 4),
+			"Layer Height (mm)", "0.35",
+			"Set the desired layer height");
 
-		addTextParameter(printPanel, "desiredPathWidth",
+		ProfileSavingTextField.CalculatedValueModifier pathWidthCalculator = new FormattedDoubleModifier(null, 0, 4) {
+				@Override
+				public String profileChangedRecalc(Profile profile) {
+					Double thickness = getValueAsDouble(profile, "carve.csv:Layer Thickness (mm):");
+					Double widthOverThickness = getValueAsDouble(profile, "carve.csv:Perimeter Width over Thickness (ratio):");
+			
+					if (thickness == null || widthOverThickness == null) {
+						return "";
+					}
+			
+					Double width = widthOverThickness * thickness;
+			
+					numberFormat.setMinimumFractionDigits(0);
+					numberFormat.setMaximumFractionDigits(2);
+					return numberFormat.format(width);
+				}
+		
+				@Override
+				public void saveValue(String text, Profile profile) {
+					Double thickness = getValueAsDouble(profile, "carve.csv:Layer Thickness (mm):");
+
+					String widthText = text;
+					Double width = 0.0;
+					try {
+						if (widthText != null)
+							width = Double.valueOf(widthText);
+				
+						Double widthOverThickness = width / thickness;
+
+						profile.setValueForPlastic("carve.csv:Perimeter Width over Thickness (ratio):", widthOverThickness.toString());
+					}
+					catch (java.lang.NumberFormatException e) {
+						Base.logger.severe("Invalid Width setting: " + widthText);
+					}
+				}
+			};
+			
+		addTextParameter(printPanel, pathWidthCalculator,
 					"Path Width (mm)", "0.5",
 					"Set the desired layer width");
-
-		addTextParameter(printPanel, "numberOfShells",
+		
+		// We save the extra shells in various values, so we need a calculator
+		ProfileSavingTextField.CalculatedValueModifier extraShellsCalculator = new FormattedDoubleModifier("fill.csv:Extra Shells on Base (layers):", 0, 4) {
+				@Override
+				public void saveValue(String text, Profile profile) {
+					profile.setValueForPlastic("fill.csv:Extra Shells on Base (layers):", text);
+					profile.setValueForPlastic("fill.csv:Extra Shells on Alternating Solid Layer (layers):", text);
+					profile.setValueForPlastic("fill.csv:Extra Shells on Sparse Layer (layers):", text);
+				}
+			};
+		
+		addTextParameter(printPanel, extraShellsCalculator,
 				"Number of shells:", "1",
 				"Number of shells to add to the perimeter of an object. Set this to 0 if you are printing a model with thin features.");
 		
-		addTextParameter(printPanel, "desiredFeedrate",
+		addTextParameter(printPanel, new FormattedDoubleModifier("speed.csv:Feed Rate (mm/s):", 0, 1),
 				"Feedrate (mm/s)", "30",
 				"slow: 0-20, default: 30, Fast: 40+");
 		
 		
 		Vector<String> materialTypes = new Vector<String>();
-		materialTypes.add("ABS");
-		materialTypes.add("PLA");
+		// These come from the Profile now...
+		// materialTypes.add("ABS");
+		// materialTypes.add("PLA");
 		
-		addDropDownParameter(materialPanel, "materialType",
+		final ProfileWatcher parentWatcher = this;
+		
+		addDropDownParameter(materialPanel, new KeyedValueSaver("extrusion.csv:Profile Selection:") {
+					@Override
+					public void valueChanged(String value) {
+						if (profile != null) {
+							Base.logger.log(Level.FINEST, " ### New Profile: " + value);
+							profile.setValue(key, value);
+							parentWatcher.profileChanged(profile);
+						}
+					}
+					@Override
+					public void profileChanged(Profile newProfile) {
+						super.profileChanged(newProfile);
+						String value = profile.getValue(key); // <- Don't save for plastic!
+						if (model != null) {
+							// Now we wipe out the list, repopulate from the selected profile, and then select the correct one.
+							model.setSelectedItem(null);
+							model.removeAllElements();
+							for (String subProfile : profile.getSubProfiles()) {
+								model.addElement(subProfile);
+							}
+							model.setSelectedItem(value);
+						}
+					}
+				},
 				"Material type:", materialTypes,
 				"Select the type of plastic to use during print");
 		
-		addTextParameter(materialPanel, "filamentDiameter",
+		addTextParameter(materialPanel, "dimension.csv:Filament Diameter (mm):",
 				"Filament Diameter (mm)", "2.94",
 				"measure feedstock");
                 
                 // TODO: Tie the materialType to this text box, so that switching the puldown changes this default
-		addTextParameter(materialPanel, "packingDensity",
+		addTextParameter(materialPanel, "dimension.csv:Filament Packing Density (ratio):",
 				"Final Volume (%)", "85",
 				"Between 85 and 100.");
 		
-		addBooleanParameter(supportPanel, "useRaft",
+		addBooleanParameter(supportPanel, "raft.csv:Add Raft, Elevate Nozzle, Orbit:",
 				"Use raft", true,
 				"If this option is checked, skeinforge will lay down a rectangular 'raft' of plastic before starting the build.  "
 				+ "Rafts increase the build size slightly, so you should avoid using a raft if your build goes to the edge of the platform.");
-		
-		/*
-		SkeinforgeBooleanPreference raftPref = 			
-			new SkeinforgeBooleanPreference("Use raft",
-				"replicatorg.skeinforge.useRaft", true,
-				"If this option is checked, skeinforge will lay down a rectangular 'raft' of plastic before starting the build.  "
-				+ "Rafts increase the build size slightly, so you should avoid using a raft if your build goes to the edge of the platform.");
-		raftPref.addNegateableOption(new SkeinforgeOption("raft.csv", "Add Raft, Elevate Nozzle, Orbit:", "true"));
-		prefs.add(raftPref);
-		SkeinforgeChoicePreference supportPref =
-			new SkeinforgeChoicePreference("Use support material",
-					"replicatorg.skeinforge.choiceSupport", "None",
-					"If this option is selected, skeinforge will attempt to support large overhangs by laying down a support "+
-					"structure that you can later remove.");
-		supportPref.addOption("None", new SkeinforgeOption("raft.csv","None", "true"));
-		supportPref.addOption("None", new SkeinforgeOption("raft.csv","Empty Layers Only", "false"));
-		supportPref.addOption("None", new SkeinforgeOption("raft.csv","Everywhere", "false"));
-		supportPref.addOption("None", new SkeinforgeOption("raft.csv","Exterior Only", "false"));
-
-		supportPref.addOption("Exterior support", new SkeinforgeOption("raft.csv","None", "false"));
-		supportPref.addOption("Exterior support", new SkeinforgeOption("raft.csv","Empty Layers Only", "false"));
-		supportPref.addOption("Exterior support", new SkeinforgeOption("raft.csv","Everywhere", "false"));
-		supportPref.addOption("Exterior support", new SkeinforgeOption("raft.csv","Exterior Only", "true"));
-
-		supportPref.addOption("Full support", new SkeinforgeOption("raft.csv","None", "false"));
-		supportPref.addOption("Full support", new SkeinforgeOption("raft.csv","Empty Layers Only", "false"));
-		supportPref.addOption("Full support", new SkeinforgeOption("raft.csv","Everywhere", "true"));
-		supportPref.addOption("Full support", new SkeinforgeOption("raft.csv","Exterior Only", "false"));
-	
-		prefs.add(supportPref);
-		*/
-		
+				
 		Vector<String> supportTypes = new Vector<String>();
 		supportTypes.add("None");
 		supportTypes.add("Exterior support");
 		supportTypes.add("Full support");
 
-		addDropDownParameter(supportPanel, "choiceSupport",
+		addDropDownParameter(supportPanel, new KeyedValueSaver() {
+					@Override
+					public void valueChanged(String value) {
+						if (profile != null) {
+							if (value.equals("None")) {
+								profile.setValueForPlastic("raft.csv:None", "True");
+								profile.setValueForPlastic("raft.csv:Empty Layers Only", "False");
+								profile.setValueForPlastic("raft.csv:Everywhere", "False");
+								profile.setValueForPlastic("raft.csv:Exterior Only", "False");
+							}
+							else
+							if (value.equals("Exterior support")) {
+								profile.setValueForPlastic("raft.csv:None", "False");
+								profile.setValueForPlastic("raft.csv:Empty Layers Only", "False");
+								profile.setValueForPlastic("raft.csv:Everywhere", "False");
+								profile.setValueForPlastic("raft.csv:Exterior Only", "True");
+							}
+							else
+							if (value.equals("Full support")) {
+								profile.setValueForPlastic("raft.csv:None", "False");
+								profile.setValueForPlastic("raft.csv:Empty Layers Only", "False");
+								profile.setValueForPlastic("raft.csv:Everywhere", "True");
+								profile.setValueForPlastic("raft.csv:Exterior Only", "False");
+							}
+						}
+					}
+
+					@Override
+					public void profileChanged(Profile newProfile) {
+						super.profileChanged(newProfile);
+						String value = "None"; // Default to None
+						String raftNone = profile.getValueForPlastic("raft.csv:None");
+						if (raftNone!= null && raftNone.equals("False")) {
+							// Ok, so we need to either select Exterior or Full
+							String raftExteriorOnly = profile.getValueForPlastic("raft.csv:Exterior Only");
+							if (raftExteriorOnly!= null && raftExteriorOnly.equalsIgnoreCase("True")) {
+								value = "Exterior support";
+							} else {
+								value = "Full support";
+							}
+							
+						}
+						
+						if (model != null)
+							model.setSelectedItem(value);
+					}
+
+				},
 				"Use support material:", supportTypes,
 				"If this option is selected, skeinforge will attempt to support large overhangs by laying down a support "+
 				"structure that you can later remove.");
@@ -313,6 +459,18 @@ public class PrintOMatic5D implements SkeinforgePreference {
 	}
 
 	public JComponent getUI() { return component; }
+	
+		
+	public void profileChanged(Profile profile) {
+		if (profile == null || processingProfileChange)
+			return;
+		processingProfileChange = true;
+		for (ProfileWatcher p : profileWatchers) {
+			p.profileChanged(profile);
+		}
+		processingProfileChange = false;
+	}
+
 	
 	// Check the options to determine if they are in an acceptable range. Return null if
 	// everything is ok, or a string describing the error if they are not ok.
@@ -338,6 +496,7 @@ public class PrintOMatic5D implements SkeinforgePreference {
 	public List<SkeinforgeOption> getOptions() {
 		
 		List<SkeinforgeOption> options = new LinkedList<SkeinforgeOption>();
+/*
 
 		if (enabled.isSelected()) {
 		
@@ -404,6 +563,7 @@ public class PrintOMatic5D implements SkeinforgePreference {
 			}
 		}
 		
+*/
 		return options;
 	}
 }

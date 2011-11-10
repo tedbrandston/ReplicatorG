@@ -8,6 +8,7 @@ import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.logging.Level;
 
 import javax.swing.DefaultComboBoxModel;
@@ -45,7 +46,7 @@ class ConfigurationDialog extends JDialog {
 	
 	private void loadList(JComboBox comboBox) {
 		comboBox.removeAllItems();
-		profiles = parentGenerator.getProfiles();
+		profiles = new ArrayList<Profile>(parentGenerator.getProfiles());
 		DefaultComboBoxModel model = new DefaultComboBoxModel();
 		int i=0;
 		int foundLastProfile = -1;
@@ -79,10 +80,6 @@ class ConfigurationDialog extends JDialog {
 	}
 
 	final JComboBox prefPulldown = new JComboBox();
-
-	private Profile getListedProfile(int idx) {
-		return profiles.get(idx);
-	}
 
 	public ConfigurationDialog(final Frame parent, final SkeinforgeGenerator parentGeneratorIn) {
 		super(parent, true);
@@ -127,13 +124,12 @@ class ConfigurationDialog extends JDialog {
 					return;
 				}
 				
-				int idx = prefPulldown.getSelectedIndex();
-				Profile p = getListedProfile(idx);
+				Profile p = parentGenerator.getSelectedProfile();
 				Base.preferences.put("lastGeneratorProfileSelected",p.toString());
 				parentGenerator.configSuccess = true;
-				parentGenerator.profile = p.getFullPath();
+				// parentGenerator.profile = p.getFullPath();
 				setVisible(false);
-				SkeinforgeGenerator.setSelectedProfile(p.toString());
+				// parentGenerator.setSelectedProfile(p.toString());
 			}
 		});
 		cancelButton.addActionListener(new ActionListener() {
