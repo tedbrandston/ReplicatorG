@@ -250,7 +250,33 @@ public class PrintOMatic5D implements SkeinforgePreference,ProfileWatcher {
 		processingProfileChange = false;
 		
 		baseName = "replicatorg.skeinforge.printOMatic5D.";
+		
+		
+		final JLabel profileInfo = new JLabel("");
+		component.add(profileInfo, "wrap, spanx, align center");
+		profileWatchers.add(new ProfileWatcher() {
+			public void profileChanged(Profile newProfile) {
+				String driverName = (Base.getMachineLoader().isLoaded() ? Base.getMachineLoader().getMachine().getDriver().getDriverName() : "None");
+				// yuck to maintain this!
+				boolean isRPM = driverName.equals("Makerbot4GAlternate");
 
+				String isUsingDimensionStr = newProfile.getValueForPlastic("dimension.csv:Activate Dimension");
+				boolean isUsingDimension = (isUsingDimensionStr != null && isUsingDimensionStr.equalsIgnoreCase("True"));
+				String isUsingReversalStr = newProfile.getValueForPlastic("reversal.csv:Activate Reversal");
+				boolean isUsingReversal = (isUsingReversalStr != null && isUsingReversalStr.equalsIgnoreCase("True"));
+				if (isUsingDimension && !isUsingReversal) {
+					profileInfo.setText("This profile uses 5D, which your driver " + (!isRPM ? "supports" : "does not support") + ".");
+				} else if (!isUsingDimension && isUsingReversal) {
+					profileInfo.setText("This profile uses RPM, which your driver " + (isRPM ? "supports" : "does not support") + ".");
+				} else if (isUsingDimension && isUsingReversal) {
+					profileInfo.setText("!! This profile uses both RPM and 5D !!");
+				} else if (!isUsingDimension && !isUsingReversal) {
+					profileInfo.setText("!! This profile doesn't use RPM or 5D !!");
+				}
+			}
+		});
+		
+		
 		// Add a checkbox to switch print-o-matic on and off
 		final String enabledName = baseName + "enabled";
 		enabled = new JCheckBox("Use Print-O-Matic (stepper extruders only)", Base.preferences.getBoolean(enabledName,false));
