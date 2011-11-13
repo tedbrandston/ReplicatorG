@@ -185,6 +185,11 @@ public class MachineModel
 						 	maxFeedrate = Double.parseDouble(XML.getAttributeValue(axis, "maxfeedrate"));
 						} catch (Exception e) {}
 						try {
+							String spmm = XML.getAttributeValue(axis, "stepspermm");
+							if (spmm == null) spmm = XML.getAttributeValue(axis, "scale"); // Backwards compatibility
+							stepspermm = Double.parseDouble(spmm);
+						} catch (Exception e) {}
+						try {
 							homingFeedrate = Double.parseDouble(XML.getAttributeValue(axis, "homingfeedrate"));
 						} catch (Exception e) {
 							// If the homing feedrate is not available, use the maximum feedrate instead
@@ -215,7 +220,7 @@ public class MachineModel
 								+ "mm, max feedrate: " + maxFeedrate 
 								+ " mm/min, homing feedrate: " + homingFeedrate
 								+ " mm/min, scale: " + stepspermm + " steps/mm"
-								 + "seconds, timeout: " + timeout + ")");
+								+ " seconds, timeout: " + timeout + ")");
 						
 					} catch (IllegalArgumentException iae) {
 						// Unrecognized axis!
