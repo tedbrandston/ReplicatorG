@@ -226,8 +226,9 @@ ToolpathGenerator.GeneratorListener
 	JMenuItem profilesMenuItem;
 	JMenuItem dualstrusionItem;
 	JMenuItem combineItem;
-	JMenu changeToolheadMenu = new JMenu("Change Toolhead of GCode");
+	JMenu changeToolheadMenu = new JMenu("Swap Toolhead in .gcode");
 
+	
 	JMenu machineMenu;
 	MachineMenuListener machineMenuListener;
 	SerialMenuListener serialMenuListener;
@@ -537,7 +538,13 @@ ToolpathGenerator.GeneratorListener
 
 	public void editProfiles() {
 		ToolpathGenerator generator = ToolpathGeneratorFactory.createSelectedGenerator();
-		generator.editProfiles(this);
+		if( generator != null)
+			generator.editProfiles(this);
+		else { // if no gcode generator is selected (or defaults changed) generator may be null
+			String message = "No Gcode Generator selected. Select a GCode generator \n in the GCode menu, under GCode Generator ";
+			int option = JOptionPane.showConfirmDialog(this, message , "No GCode Generator Selected.", 
+				JOptionPane.OK_OPTION, JOptionPane.QUESTION_MESSAGE);
+		}
 	}
 
 	public void runToolpathGenerator() {
@@ -972,7 +979,7 @@ ToolpathGenerator.GeneratorListener
 		menu.add(stopItem);
 
 		// GENERATOR
-		JMenu genMenu = new JMenu("Choose GCode generator");
+		JMenu genMenu = new JMenu("GCode Generator");
 		Vector<ToolpathGeneratorDescriptor> generators = ToolpathGeneratorFactory.getGeneratorList();
 		String name = ToolpathGeneratorFactory.getSelectedName();
 		ButtonGroup group = new ButtonGroup();
@@ -1001,14 +1008,16 @@ ToolpathGenerator.GeneratorListener
 		menu.add(profilesMenuItem);
 
 		menu.addSeparator();
+		
 		//Change Toolhead of GCode
-		//ButtonGroup toolGroup = new ButtonGroup();
-		JMenuItem left = new JMenuItem("Extruder A");
+		JMenuItem left = new JMenuItem("to use T1 (aka Left/A)");
 		left.addActionListener(new ActionListener()
 		{
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
-				DualStrusionWorker.changeToolHead(build.getCode().file, 1);
+				//TODO: check here for 2+ tool changes ( G45, G55) to find dual-extrusion files,
+				// and in those cases, send a message box 'dual heads used, cannot convert'
+				DualStrusionWorker.changeToolHead(build.getCode().file, "left");
 				handleOpenFile(build.getCode().file);
 				try {
 					build.getCode().load();
@@ -1018,12 +1027,14 @@ ToolpathGenerator.GeneratorListener
 				}
 			}	
 		});
-		JMenuItem right = new JMenuItem("Extruder B");
+		JMenuItem right = new JMenuItem("to use T0 (aka Right/B)");
 		right.addActionListener(new ActionListener()
 		{
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
-				DualStrusionWorker.changeToolHead(build.getCode().file, 0);
+				//TODO: check here for 2+ tool changes ( G45, G55) to find dual-extrusion files,
+				// and in those cases, send a message box 'dual heads used, cannot convert'
+				DualStrusionWorker.changeToolHead(build.getCode().file, "right");
 				handleOpenFile(build.getCode().file);
 				try {
 					build.getCode().load();
@@ -1037,7 +1048,7 @@ ToolpathGenerator.GeneratorListener
 		changeToolheadMenu.add(left);
 		changeToolheadMenu.add(right);
 		menu.add(changeToolheadMenu);
-		dualstrusionItem = newJMenuItem("Dual Extrusion (experimental)", 'D');
+		dualstrusionItem = newJMenuItem("Merge .stl for DualExtrusion (experimental)", 'D');
 		dualstrusionItem.addActionListener(new ActionListener()
 		{
 			public void actionPerformed(ActionEvent arg0)
@@ -1047,8 +1058,8 @@ ToolpathGenerator.GeneratorListener
 		});
 		menu.add(dualstrusionItem);
 		setDualStrusionGUI();
-
-		combineItem = new JMenuItem("Row combine (experimental)");
+/*
+		combineItem = new JMenuItem("Row Combine (experimental)");
 		combineItem.addActionListener(new ActionListener(){
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
@@ -1057,6 +1068,7 @@ ToolpathGenerator.GeneratorListener
 		});
 		menu.add(combineItem);
 		combineItem.setEnabled(true);
+*/
 		
 		return menu;
 	}
@@ -1071,11 +1083,11 @@ ToolpathGenerator.GeneratorListener
 		JMenuItem item;
 		JMenu menu = new JMenu("Machine");
 
-		machineMenu = new JMenu("Driver");
+		machineMenu = new JMenu("Machine Type (Driver)");
 		populateMachineMenu();
 		menu.add(machineMenu);
 
-		serialMenu = new JMenu("Serial Port");
+		serialMenu = new JMenu("Connection (Serial Port)");
 		reloadSerialMenu();
 		menu.add(serialMenu);
 
@@ -1185,6 +1197,8 @@ ToolpathGenerator.GeneratorListener
 			}
 		}
 	}
+	
+	/// Returns True of the selected machine has 2 or more toolheads
 	public boolean isDualDriver()
 	{
 		String mname = Base.preferences.get("machine.name", "error");
@@ -1194,20 +1208,23 @@ ToolpathGenerator.GeneratorListener
 			MachineLoader ml = new MachineLoader();
 			ml.load(mname);
 			System.out.println(ml.getMachine().getModel().getTools().size());
-			if(ml.getMachine().getModel().getTools().size() > 1)
+			if(ml.getMachine().getModel().getTools().size() == 2)
 			{
 				return true;
 			}
 		}
 		catch(NullPointerException e)
 		{
-			System.err.println("Errorz");
+			System.err.println("Error");
 			e.printStackTrace();
 		}
 		return false;
 	}
+	
+	
 	private void setDualStrusionGUI()
 	{
+		
 		dualstrusionItem.setEnabled(false);
 		changeToolheadMenu.setEnabled(false);
 
@@ -1301,6 +1318,7 @@ ToolpathGenerator.GeneratorListener
 			exception.printStackTrace();
 		}
 		Collections.sort(names);
+		
 		
 		ButtonGroup radiogroup = new ButtonGroup();
 		for (String name : names ) {
@@ -2767,7 +2785,7 @@ ToolpathGenerator.GeneratorListener
 	// ...................................................................
 
 	/**
-	 * Returns the edit popup menu.
+	 *  Class for the Popup menu displayed when one right-clicks on a file .
 	 */
 	class TextAreaPopup extends JPopupMenu {
 		// String currentDir = System.getProperty("user.dir");
@@ -2776,7 +2794,11 @@ ToolpathGenerator.GeneratorListener
 		JMenuItem cutItem, copyItem;
 
 		JMenuItem referenceItem;
-
+		
+		/**
+		 * Builds a complete pop-up menu, including standard cut/paste/copy items
+		 * Items that are not usable will be grey'd out
+		 */
 		public TextAreaPopup() {
 			JMenuItem item;
 
@@ -2815,7 +2837,12 @@ ToolpathGenerator.GeneratorListener
 			this.add(item);
 		}
 
-		// if no text is selected, disable copy and cut menu items
+		/**
+		 *  if no text is selected, disable copy and cut menu items
+		 * @param component parent component
+		 * @param x location of click at which to display ??
+		 * @param y location of click at which to display ??
+		 */
 		public void show(Component component, int x, int y) {
 			if (textarea.isSelectionActive()) {
 				cutItem.setEnabled(true);
@@ -2823,12 +2850,14 @@ ToolpathGenerator.GeneratorListener
 
 				String sel = textarea.getSelectedText().trim();
 				referenceFile = PdeKeywords.getReference(sel);
-				referenceItem.setEnabled(referenceFile != null);
+				if(referenceItem !=  null)
+					referenceItem.setEnabled(referenceFile != null);
 
 			} else {
 				cutItem.setEnabled(false);
 				copyItem.setEnabled(false);
-				referenceItem.setEnabled(false);
+				if(referenceItem != null)
+					referenceItem.setEnabled(false);
 			}
 			super.show(component, x, y);
 		}
@@ -2914,56 +2943,62 @@ ToolpathGenerator.GeneratorListener
 		// We get a change event when another tab is selected.
 		setCurrentElement(header.getSelectedElement());
 	}
+	
+	/**
+	 * This function takes standard skeinforge output, and converts it 
+	 * to be proper code for running a single material build on a dual material machine
+	 * 
+	 * @param source file containing single extruder gcode
+	 */
 
+	public void singleMaterialDualstrusionModifications(File source)
+	{
+		try
+		{
+			boolean printOMaticEnabled  = Base.preferences.getBoolean("replicatorg.skeinforge.printOMatic.enabled", false);
+			String extruderChoice = Base.preferences.get("replicatorg.skeinforge.printOMatic.toolheadOrientation", "does not exist");
+			int toolCount = machineLoader.getMachine().getModel().getTools().size();
+
+			Base.logger.fine("Selected Extruder " + extruderChoice);
+			if(printOMaticEnabled == true)
+			{
+				Base.logger.finer("performing " + extruderChoice + " ops");
+				DualStrusionWorker.changeToolHead(build.getCode().file, extruderChoice);
+				handleOpenFile(build.getCode().file);
+			}
+			else {
+				Base.logger.finer("cannot use Dual Extrusion without Print-O-Matic");						
+			}
+		}
+		catch(NullPointerException e)
+		{
+			// This case happens often when generating gcode and dual Mk7's are selected
+			Base.logger.severe("Error doing toolhead update in generationComplete" + e);
+		}
+	}
+	
+	
+	/** Function called automatically when new gcode generation completes
+	 *  does post-processing for newly created gcode
+	 * @param completion
+	 * @param details
+	 */
 	public void generationComplete(Completion completion, Object details) {
 
-		// if success, update header and switch to code
+		// if success, update header and switch to code view
 		if (completion == Completion.SUCCESS) {
 			if (build.getCode() != null) {
 				setCode(build.getCode());
 			}
+			
+			/// a dual extruder machine is selected, start/end gcode must be updated accordingly
+			if( isDualDriver()) {
+				singleMaterialDualstrusionModifications(build.getCode().file);
+			}
+			
 			buttons.updateFromMachine(machineLoader.getMachine());
 			updateBuild();
-			
-			// So I've just discovered that this isDualDriver does the same check as we're doing with toolCount below
-			// This is a mess and should be tidied up. When is this used?
-			if(isDualDriver())
-			{
-				String extruderChoice = Base.preferences.get("replicatorg.skeinforge.printOMatic.toolheadOrientation", "does not exist");
-				boolean pomOn = Base.preferences.getBoolean("replicatorg.skeinforge.printOMatic.enabled", false);
-				
-				try
-				{
-					int toolCount = machineLoader.getMachine().getModel().getTools().size();
-					Base.logger.finer("tool size" + toolCount );
-					if( toolCount > 1 && pomOn)
-					{
-						Base.logger.fine(extruderChoice);
-						if(extruderChoice.equalsIgnoreCase("left"))
-						{
-							Base.logger.finer("performing left ops");
-							DualStrusionWorker.changeToolHead(build.getCode().file, 1);
-							handleOpenFile(build.getCode().file);
-						}
-						else if(extruderChoice.equalsIgnoreCase("right"))
-						{
-							Base.logger.finer("performing right ops");
-							DualStrusionWorker.changeToolHead(build.getCode().file, 0);
-							handleOpenFile(build.getCode().file);
-						}
-					}
-					else if(pomOn)
-					{
-						DualStrusionWorker.changeToolHead(build.getCode().file, 0);
-						handleOpenFile(build.getCode().file);
-					}
-				}
-				catch(NullPointerException e)
-				{
-					//we don't need a message here?
-					Base.logger.fine("error doing toolhead update in generationComplete" + e);
-				}
-			}
+
 		}
 	}
 
