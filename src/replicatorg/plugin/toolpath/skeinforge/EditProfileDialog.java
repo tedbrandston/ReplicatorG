@@ -54,7 +54,7 @@ class EditProfileDialog extends JDialog {
 	
 	private void loadList(JList list) {
 		list.removeAll();
-		profiles = new ArrayList(parentGenerator.getProfiles());
+		profiles = new ArrayList<Profile>(parentGenerator.getProfiles());
 		DefaultListModel model = new DefaultListModel();
 		int i=0;
 		int foundLastProfile = -1;
@@ -138,13 +138,12 @@ class EditProfileDialog extends JDialog {
 		prefList.addMouseListener(new MouseAdapter() {
 			public void mouseClicked(MouseEvent evt) {
 		        JList list = (JList)evt.getSource();
-		        if (evt.getClickCount() == 2) { // Double-click generates with this profile
-		            int idx = list.locationToIndex(evt.getPoint());
-		            Profile p = getListedProfile(idx);
-					Base.preferences.put("lastGeneratorProfileSelected",p.toString());
-					parentGenerator.configSuccess = true;
-					parentGenerator.profile = p.getFullPath();
-					setVisible(false);
+		        if (evt.getClickCount() == 2) { // Double-click edits this profile
+					int idx = prefList.getSelectedIndex();
+					if (idx != -1) {
+						Profile p = getListedProfile(idx);
+						parentGenerator.editProfile(p);
+					}
 		        }
 		    }
 		});
@@ -157,12 +156,10 @@ class EditProfileDialog extends JDialog {
 				if(e.getKeyCode() == KeyEvent.VK_ENTER)
 				{
 					int idx = prefList.getSelectedIndex();
-					Base.logger.fine("idx="+idx);
-					Profile p = getListedProfile(idx);
-					Base.preferences.put("lastGeneratorProfileSelected",p.toString());
-					parentGenerator.configSuccess = true;
-					parentGenerator.profile = p.getFullPath();
-					setVisible(false);
+					if (idx != -1) {
+						Profile p = getListedProfile(idx);
+						parentGenerator.editProfile(p);
+					}
 				} else if(e.getKeyCode() == KeyEvent.VK_ESCAPE) {
 					setVisible(false);
 				}
@@ -174,10 +171,7 @@ class EditProfileDialog extends JDialog {
 		editButton.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				int idx = prefList.getSelectedIndex();
-				if (idx == -1) {
-					JOptionPane.showMessageDialog(parent,
-							"Select a profile to edit.");
-				} else {
+				if (idx != -1) {
 					Profile p = getListedProfile(idx);
 					parentGenerator.editProfile(p);
 				}
@@ -208,7 +202,7 @@ class EditProfileDialog extends JDialog {
 				if (idx == -1) {
 				} else {
 					Profile p = getListedProfile(idx);
-					boolean result = new ProfileUtils().openFolder(p);
+					boolean result = ProfileUtils.openFolder(p);
 					Base.logger.log(Level.FINEST,
 							"Opening directory for profile: "+ result);
 				}
@@ -228,7 +222,7 @@ class EditProfileDialog extends JDialog {
 						"Delete Profile", JOptionPane.YES_NO_OPTION);
 				if (userResponse == JOptionPane.YES_OPTION) {
 
-					boolean result = new ProfileUtils().delete(p);
+					boolean result = ProfileUtils.delete(p);
 					loadList(prefList);
 					pack();
 					Base.logger.log(Level.INFO, "Profile " + p.getFullPath()

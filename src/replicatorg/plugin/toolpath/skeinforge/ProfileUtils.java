@@ -21,12 +21,12 @@ public class ProfileUtils {
 	 * @param p the profile
 	 * @return true on success
 	 */
-	public boolean delete(SkeinforgeGenerator.Profile p) {
+	static public boolean delete(SkeinforgeGenerator.Profile p) {
 		return delete(new File(p.getFullPath()));
 		
 	}
 
-	private boolean delete(File file) {
+	static public boolean delete(File file) {
 		boolean result = true;
 		if (file.exists()) {
 			if (file.isDirectory()) {
@@ -49,12 +49,12 @@ public class ProfileUtils {
 			return false;
 		}
 	}
-	public boolean openFolder(SkeinforgeGenerator.Profile p) {
+	static public boolean openFolder(SkeinforgeGenerator.Profile p) {
 		return openFolder(new File(p.getFullPath()));
 		
 	}
 
-	private boolean openFolder(File file) {
+	static private boolean openFolder(File file) {
 		if(Base.openFolderAvailable() != true) 
 		{
 				Base.logger.info("The profile can be found in this directory: \""+file+"\".");

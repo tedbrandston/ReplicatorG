@@ -140,14 +140,29 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 
 	public boolean setSelectedProfile(String name) {
 		Base.logger.log(Level.FINEST, "setSelectedProfile: " + name);
-		Matcher m = Pattern.compile("^(.*) \\[Modified\\]").matcher(name);
+		Matcher m = Pattern.compile("^(.*) \\[Modified\\]$").matcher(name);
 		boolean reset = false;
 		if (m.matches()) {
 			name = m.group(1);
 			Base.logger.log(Level.FINEST, "setSelectedProfile fixed: " + name);
 		} else if (profile.isChanged()) {
-			profile.clearOverrides();
-			reset = true;
+			int userResponse = JOptionPane.showConfirmDialog(null,
+					"Are you sure you wish to discard your changes\nto the profile '" 
+					+ profile.getName() + "'?\nThis cannot be undone.",
+					"Yes", JOptionPane.YES_NO_OPTION);
+			
+			if (userResponse == JOptionPane.YES_OPTION) {
+				profile.clearOverrides();
+
+				// delete the old [Modified]
+				File modifiedPath = new File(getUserProfilesDir(), profile.getNameModified());
+				if (modifiedPath.exists())
+					ProfileUtils.delete(modifiedPath);
+
+				reset = true;
+			} else {
+				return false;
+			}
 		}
 		Profile namedProfile = profiles.get(name);
 		if (namedProfile != null) {
@@ -229,11 +244,18 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 
 		public Profile(String fullPath) {
 			this.profileFile = new File(fullPath);
-			this.scanProfileFolder(profileFile, (String)null, 0);
+			this.scanProfileFolder(profileFile, (String)null, 0, false);
+		}
+		
+		public void addModifiedProfile(String modifiedPath) {
+			this.scanProfileFolder(new File(modifiedPath), (String)null, 0, true);
 		}
 		
 		public void addChangeWatcher(ProfileChangedWatcher pcw) {
+			Base.logger.log(Level.FINEST, "addChangeWatcher");
 			changeWatchers.add(pcw);
+			if (isChanged())
+				pcw.profileIsChanged(this);
 		}
 
 		public void removeChangeWatcher(ProfileChangedWatcher pcw) {
@@ -242,6 +264,11 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 		
 		public String getFullPath() {
 			return profileFile.getPath();
+		}
+
+		// Get the name as if it were modified
+		public String getNameModified() {
+			return profileFile.getName() + " [Modified]";
 		}
 
 		public String getName() {
@@ -257,7 +284,7 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 		}
 
 		public String getValue(String key) {
-			Base.logger.log(Level.FINEST, "Value for key: " + key + " = " + (overrideMap.containsKey(key) ? overrideMap.get(key) : settingMap.get(key)));
+			// Base.logger.log(Level.FINEST, "Value for key: " + key + " = " + (overrideMap.containsKey(key) ? overrideMap.get(key) : settingMap.get(key)));
 			return overrideMap.containsKey(key) ? overrideMap.get(key) : settingMap.get(key);
 		}
 
@@ -320,21 +347,21 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 			return profileFile.getName().compareTo(o.profileFile.getName());
 		}
 		
-		public Boolean checkForUpdate() {
+		public boolean checkForUpdate() {
 			subProfiles.clear();
-			return scanProfileFolder(profileFile, (String)null, 0);
+			return scanProfileFolder(profileFile, (String)null, 0, true);
 		}
 		
-		private Boolean scanProfileFolder(File basePath, String subprofile, int depth) {
-			Boolean updated = false;
+		private boolean scanProfileFolder(File basePath, String subprofile, int depth, boolean modified) {
+			boolean updated = false;
 			for (String subpath : basePath.list()) {
 				File subFile = new File(basePath, subpath);
 				if (subFile.isDirectory()) {
 					if ((depth == 0 && subFile.getName().matches("^(profiles)$")) || (depth == 1 && subFile.getName().matches("^(extrusion)$"))) {
-						scanProfileFolder(subFile, (String)null, depth+1);
+						scanProfileFolder(subFile, (String)null, depth+1, modified);
 					} else if (depth == 2) {
 						subProfiles.add(subFile.getName());
-						scanProfileFolder(subFile, subFile.getName(), depth+1);
+						scanProfileFolder(subFile, subFile.getName(), depth+1, modified);
 					}
 				}
 				else if (subFile.getName().matches(".*\\.csv$")) {
@@ -379,8 +406,11 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 						} 
 						String[] tokens = line.split("\t");
 						String key = (subprofile==null?"":subprofile+"/")+subFile.getName()+":"+tokens[0];
-						Base.logger.log(Level.FINEST, "Loaded value for key: " + key + " = " + (tokens.length>1?tokens[1]:null));
-						settingMap.put(key, (tokens.length>1?tokens[1]:null));
+						// Base.logger.log(Level.FINEST, "Loaded value for key: " + key + " = " + (tokens.length>1?tokens[1]:null));
+						if (modified)
+							setValue(key, (tokens.length>1?tokens[1]:null)); // use the normal override logic
+						else
+							settingMap.put(key, (tokens.length>1?tokens[1]:null));
 						store.addKey(tokens[0]);
 					}
 				}
@@ -392,12 +422,42 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 			return subProfiles;
 		}
 		
-		public void save() {
+		public void save(File basePath, String newName) {
+			boolean makinCopy = false;
+			File newBasePath = null;
+			
+			if (newName == null)
+				newName = toString(); // we use toString's logic to grab the name, possibly including " [Modified]"
+				
+			if (!newName.equals(profileFile.getName())) {
+				/* the copymeister is*/ makinCopy = true;
+				
+				// copy to new path
+				File newProfDir = new File(basePath, newName);
+				try {
+					Base.copyDir(profileFile, newProfDir);
+				} catch (IOException ioe) {
+					Base.logger.log(Level.SEVERE,
+							"Couldn't copy profile", ioe);
+				}
+				
+				// prepare our newBasePath
+				newBasePath = new File(basePath, newName);
+				Base.logger.log(Level.FINEST, "newBasePath: " + newBasePath.getPath());
+			}
+				
 			for (ProfileSubfileStore store : subFileStores) {
+				File storeFile = store.file;
+				if (makinCopy) {
+					String newFilePath = newBasePath + storeFile.getPath().substring(profileFile.getPath().length());
+					storeFile = new File(newFilePath);
+					Base.logger.log(Level.FINEST, "new path: " + storeFile.getPath());
+				}
+				
 				boolean isDirty = false;
 				// Since only a few files will likely be effected, we search
 				// the overrideMap to see if we need to save this file
-				String keyPrefix = (store.subprofileName != null ? store.subprofileName + "/" : "") + store.file.getName() + ":";
+				String keyPrefix = (store.subprofileName != null ? store.subprofileName + "/" : "") + storeFile.getName() + ":";
 				for (String key : overrideMap.keySet()) {
 					if (key.startsWith(keyPrefix)) {
 						isDirty = true;
@@ -407,19 +467,19 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 				
 				if (isDirty) {
 					try {
-						Base.logger.log(Level.SEVERE, "Saving file: " + store.file);
-						BufferedWriter writer = new BufferedWriter(new FileWriter(store.file));
-						Base.logger.log(Level.FINEST, "\t" + store.header);
+						// Base.logger.log(Level.SEVERE, "Saving file: " + storeFile);
+						BufferedWriter writer = new BufferedWriter(new FileWriter(storeFile));
+						// Base.logger.log(Level.FINEST, "\t" + store.header);
 						writer.write(store.header);
 						for (String key : store.keyOrder) {
 							writer.write(key+"\t");
 							String value = getValue(keyPrefix+key);
 							writer.write((value == null ? "" : value) + "\n");
-							Base.logger.log(Level.FINEST, keyPrefix+"\t" + key + "==" + (value == null ? "<null>" : value));
+							// Base.logger.log(Level.FINEST, keyPrefix+"\t" + key + "==" + (value == null ? "<null>" : value));
 						}
 						writer.close();
 					} catch (IOException ioe) {
-						Base.logger.log(Level.SEVERE, "Couldn't write to: " + store.file, ioe);
+						Base.logger.log(Level.SEVERE, "Couldn't write to: " + storeFile, ioe);
 					}
 					
 				}
@@ -428,17 +488,35 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 	}
 
 	void getProfilesIn(File dir) {
+		File modifiedPath = null;
 		if (dir.exists() && dir.isDirectory()) {
 			for (String subpath : dir.list()) {
 				File subDir = new File(dir, subpath);
 				if (subDir.isDirectory()) {
-					Base.logger.log(Level.FINEST, "Profile search: " + subDir.getName());
-					if (profiles.containsKey(subDir.getName()))
-						profiles.get(subDir.getName()).checkForUpdate();
+					String subDirName = subDir.getName();
+					Base.logger.log(Level.FINEST, "Profile search: " + subDirName);
+					if (subDirName.matches("^(.*) \\[Modified\\]$")) {
+						modifiedPath = subDir; // there can be only one
+						continue;
+					}
+					if (profiles.containsKey(subDirName))
+						profiles.get(subDirName).checkForUpdate();
 					else {
 						Base.logger.log(Level.FINEST, "Adding profile: " + subDir.getAbsolutePath());
-						profiles.put(subDir.getName(), new Profile(subDir.getAbsolutePath()));
+						profiles.put(subDirName, new Profile(subDir.getAbsolutePath()));
 					}
+				}
+			}
+		}
+		
+		if (modifiedPath != null) {
+			Matcher m = Pattern.compile("^(.*) \\[Modified\\]$").matcher(modifiedPath.getName());
+			boolean reset = false;
+			if (m.matches()) {
+				String name = m.group(1);
+				if (profiles.containsKey(name)) {
+					Base.logger.log(Level.FINEST, "Modified profile: " + modifiedPath.getPath());
+					profiles.get(name).addModifiedProfile(modifiedPath.getPath());
 				}
 			}
 		}
@@ -723,8 +801,7 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 	}
 
 	public Profile duplicateProfile(Profile originalProfile, String newName) {
-		File newProfDir = new File(getUserProfilesDir(),
-				newName);
+		File newProfDir = new File(getUserProfilesDir(), newName);
 		File oldProfDir = new File(originalProfile.getFullPath());
 		try {
 			Base.copyDir(oldProfDir, newProfDir);
@@ -820,7 +897,7 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 	public BuildCode generateToolpath() {
 		String path = model.getPath();
 		
-		profile.save();
+		profile.save(getUserProfilesDir(), null);
 
 		List<String> arguments = new LinkedList<String>();
 		// The -u makes python output unbuffered. Oh joyous day.

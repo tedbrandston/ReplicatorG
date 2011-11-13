@@ -53,24 +53,28 @@ class ConfigurationDialog extends JDialog implements Profile.ProfileChangedWatch
 		}
 		comboBox.setModel(menuModel);
 		Profile lastProfile = parentGenerator.getSelectedProfile();
-		
 		if (lastProfile != null) {
 			lastProfile.addChangeWatcher(this);
+			menuModel.setSelectedItem(lastProfile);
 		}
 	}
 	
 	// this means the profile is telling us that it is in a changed state (or not)
 	public void profileIsChanged(Profile profile) {
+		Base.logger.log(Level.FINEST, "profileIsChanged");
 		int index = menuModel.getIndexOf(profile);
 
 		if (!profile.isChanged()) {
-			
 			if (index > 0) {
 				Object menuItem = menuModel.getElementAt(index-1);
+				boolean isSelectedProfile = menuModel.getSelectedItem().equals(menuItem);
 				if (menuItem instanceof String)
 					menuModel.removeElement(menuItem);
+				if (isSelectedProfile)
+					menuModel.setSelectedItem(profile);
 			}
 		} else {
+			Base.logger.log(Level.FINEST, "profileIsChanged/insertElementAt");
 			menuModel.insertElementAt(profile.getName(), index);
 		}
 	}
@@ -86,10 +90,18 @@ class ConfigurationDialog extends JDialog implements Profile.ProfileChangedWatch
 			String value = (String)prefPulldown.getSelectedItem().toString();
 			Profile oldProfile = parentGenerator.getSelectedProfile();
 			boolean changed = parentGenerator.setSelectedProfile(value);
-			// There's a chance that the profile won't actually change, BTW
-			oldProfile.removeChangeWatcher(parent);
-			parentGenerator.getSelectedProfile().addChangeWatcher(parent);
+			// There's a chance that the profile won't actually change, if the user cancelled
+			if (changed) {
+				oldProfile.removeChangeWatcher(parent);
+				parentGenerator.getSelectedProfile().addChangeWatcher(parent);
+			} else {
+				parent.setSelectedProfile(oldProfile);
+			}
 		}
+	}
+	
+	private void setSelectedProfile(Profile profile) {
+		menuModel.setSelectedItem(profile);
 	}
 	
 
