@@ -25,7 +25,7 @@ import replicatorg.app.Base;
 import replicatorg.plugin.toolpath.skeinforge.SkeinforgeGenerator.Profile;
 import replicatorg.plugin.toolpath.skeinforge.SkeinforgeGenerator.SkeinforgePreference;
 
-class ConfigurationDialog extends JDialog {
+class ConfigurationDialog extends JDialog implements Profile.ProfileChangedWatcher {
 	final boolean postProcessToolheadIndex = true;
 	final String profilePref = "replicatorg.skeinforge.profilePref";
 	
@@ -41,29 +41,57 @@ class ConfigurationDialog extends JDialog {
 	 */
 	private SkeinforgeGenerator parentGenerator = null;
 	private List<Profile> profiles = null;
+	private DefaultComboBoxModel menuModel = new DefaultComboBoxModel();
 	
 	JPanel profilePanel = new JPanel();
 	
 	private void loadList(JComboBox comboBox) {
 		comboBox.removeAllItems();
 		profiles = new ArrayList<Profile>(parentGenerator.getProfiles());
-		DefaultComboBoxModel model = new DefaultComboBoxModel();
-		int i=0;
-		int foundLastProfile = -1;
 		for (Profile p : profiles) {
-			model.addElement(p.toString());
-			if(p.toString().equals(Base.preferences.get("lastGeneratorProfileSelected","---")))
-			{
-				Base.logger.fine("Selecting last used element: " + p);
-				foundLastProfile = i;
-			}
-			i++;
+			menuModel.addElement(p);
 		}
-		comboBox.setModel(model);
-		if(foundLastProfile != -1) {
-			comboBox.setSelectedIndex(foundLastProfile);
+		comboBox.setModel(menuModel);
+		Profile lastProfile = parentGenerator.getSelectedProfile();
+		
+		if (lastProfile != null) {
+			lastProfile.addChangeWatcher(this);
 		}
 	}
+	
+	// this means the profile is telling us that it is in a changed state (or not)
+	public void profileIsChanged(Profile profile) {
+		int index = menuModel.getIndexOf(profile);
+
+		if (!profile.isChanged()) {
+			
+			if (index > 0) {
+				Object menuItem = menuModel.getElementAt(index-1);
+				if (menuItem instanceof String)
+					menuModel.removeElement(menuItem);
+			}
+		} else {
+			menuModel.insertElementAt(profile.getName(), index);
+		}
+	}
+	
+	private class ProfileMenuActionListener implements ActionListener {
+		private ConfigurationDialog parent = null;
+		private SkeinforgeGenerator parentGenerator;
+		ProfileMenuActionListener(ConfigurationDialog parent, SkeinforgeGenerator parentGenerator) {
+			this.parent = parent;
+			this.parentGenerator = parentGenerator;
+		}
+		public void actionPerformed(ActionEvent arg0) {
+			String value = (String)prefPulldown.getSelectedItem().toString();
+			Profile oldProfile = parentGenerator.getSelectedProfile();
+			boolean changed = parentGenerator.setSelectedProfile(value);
+			// There's a chance that the profile won't actually change, BTW
+			oldProfile.removeChangeWatcher(parent);
+			parentGenerator.getSelectedProfile().addChangeWatcher(parent);
+		}
+	}
+	
 
 	/**
 	 * Help reduce effects of miserable memory leak.
@@ -89,27 +117,12 @@ class ConfigurationDialog extends JDialog {
 		
 		// have to set this. Something wrong with the initial use of the
 		// ListSelectionListener
-		generateButton.setEnabled(false);
+		generateButton.setEnabled(true);
 				
 		add(new JLabel("Base Profile:"), "split 2");
 		
-		// This is intended to fix a bug where the "Generate Gcode" button doesn't get enabled 
-		prefPulldown.addActionListener(new ActionListener(){
-			@Override
-			public void actionPerformed(ActionEvent arg0) {
-				generateButton.setEnabled(true);
-				generateButton.requestFocusInWindow();
-				generateButton.setFocusPainted(true);
-			}
-			
-		});
 		loadList(prefPulldown);
-		prefPulldown.addActionListener(new ActionListener(){
-			public void actionPerformed(ActionEvent arg0) {
-				String value = (String)prefPulldown.getSelectedItem().toString();
-				parentGeneratorIn.setSelectedProfile(value);
-			}
-		});
+		prefPulldown.addActionListener(new ProfileMenuActionListener(this, parentGenerator));
 		add(prefPulldown, "wrap, growx");
 
 		for (SkeinforgePreference preference: parentGenerator.preferences) {

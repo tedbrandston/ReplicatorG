@@ -13,10 +13,13 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.TreeMap;
 import java.util.LinkedList;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Collection;
 import java.util.logging.Level;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JCheckBox;
@@ -25,6 +28,8 @@ import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.event.PopupMenuListener;
+import javax.swing.event.PopupMenuEvent;
 
 import net.miginfocom.swing.MigLayout;
 import replicatorg.app.Base;
@@ -63,12 +68,36 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 	List <SkeinforgePreference> preferences;
 	private TreeMap <String, Profile> profiles = new TreeMap<String, Profile>();
 	List <ProfileWatcher> profileWatchers = new LinkedList<ProfileWatcher>();
+	
+	JComboBox comboBox = null;
 
 	public SkeinforgeGenerator() {
 		preferences = getPreferences();
 		getSelectedProfile();
 	}
-
+	
+	// public void setComboBox(JComboBox comboBox) {
+	// 	this.comboBox = comboBox;
+	// 	comboBox.addPopupMenuListener(new PopupMenuListener() {
+	// 		public void popupMenuWillBecomeVisible(PopupMenuEvent e) {
+	// 			JComboBox menu = (JComboBox)(e.getSource());
+	// 			int index = menu.getSelectedIndex();
+	// 			
+	// 			if (!profile.isChanged()) {
+	// 				if (index > 0 && menu.getItemAt(index-1) instanceof String) {
+	// 					menu.removeItemAt(index-1);
+	// 				}
+	// 			} else {
+	// 				if (profile.isChanged()) {
+	// 					menu.insertItemAt(profile.getName(), index);
+	// 				}
+	// 			}
+	// 		}
+	// 		public void popupMenuCanceled(PopupMenuEvent e) {}
+	// 		public void popupMenuWillBecomeInvisible(PopupMenuEvent e) {}
+	// 	});
+	// }
+	
 	public boolean runSanityChecks() {
 		String errors = "";
 		
@@ -109,13 +138,25 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 		return profile;
 	}
 
-	public void setSelectedProfile(String name) {
+	public boolean setSelectedProfile(String name) {
+		Base.logger.log(Level.FINEST, "setSelectedProfile: " + name);
+		Matcher m = Pattern.compile("^(.*) \\[Modified\\]").matcher(name);
+		boolean reset = false;
+		if (m.matches()) {
+			name = m.group(1);
+			Base.logger.log(Level.FINEST, "setSelectedProfile fixed: " + name);
+		} else if (profile.isChanged()) {
+			profile.clearOverrides();
+			reset = true;
+		}
 		Profile namedProfile = profiles.get(name);
 		if (namedProfile != null) {
 			Base.preferences.put("replicatorg.skeinforge.profile", name);
 			profile = namedProfile;
 			notifyProfileWatchers();
 		}
+		//TODO: Put dialog check in here somewhere
+		return true;
 	}
 	
 	public void addProfileWatcher(ProfileWatcher aWatcher) {
@@ -145,6 +186,12 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 		private Map<String,String> overrideMap = new HashMap<String,String>();
 		// subProfiles -- such as ABS, PLA, PVA, etc. These have arbitray names, BTW.
 		private LinkedList<String> subProfiles = new LinkedList<String>();
+		
+		public interface ProfileChangedWatcher {
+			public void profileIsChanged(Profile profile);
+		}
+		
+		private ArrayList<ProfileChangedWatcher> changeWatchers = new ArrayList<ProfileChangedWatcher>();
 		
 		// In order to save the profile again, we need to store the headers and key order for each file
 		private class ProfileSubfileStore {
@@ -184,13 +231,25 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 			this.profileFile = new File(fullPath);
 			this.scanProfileFolder(profileFile, (String)null, 0);
 		}
+		
+		public void addChangeWatcher(ProfileChangedWatcher pcw) {
+			changeWatchers.add(pcw);
+		}
 
+		public void removeChangeWatcher(ProfileChangedWatcher pcw) {
+			changeWatchers.remove(pcw);
+		}
+		
 		public String getFullPath() {
 			return profileFile.getPath();
 		}
 
-		public String toString() {
+		public String getName() {
 			return profileFile.getName();
+		}
+		
+		public String toString() {
+			return profileFile.getName() + (isChanged() ? " [Modified]" : "");
 		}
 		
 		public String getValue(String module, String key) {
@@ -198,6 +257,7 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 		}
 
 		public String getValue(String key) {
+			Base.logger.log(Level.FINEST, "Value for key: " + key + " = " + (overrideMap.containsKey(key) ? overrideMap.get(key) : settingMap.get(key)));
 			return overrideMap.containsKey(key) ? overrideMap.get(key) : settingMap.get(key);
 		}
 
@@ -216,17 +276,42 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 			setValue(module+":"+key, value);
 		}
 
+		// We want to be smart here, so if we go to set it to the current value, don't add a key to overrideMap
+		// Likewise, is we are setting it back to what's in the profiles, we remove the key from overrideMap
 		public void setValue(String key, String value) {
-			overrideMap.put(key, value);
+			boolean wasChanged = isChanged();
+			if (settingMap.containsKey(key) && (value == null && settingMap.get(key) == null) || (settingMap.get(key) != null && settingMap.get(key).equals(value))) {
+				overrideMap.remove(key);
+			} else {
+				overrideMap.put(key, value);
+			}
+			if (isChanged() != wasChanged)
+				notifyProfileChangedChanged();
 		}
-
+		
+		private void notifyProfileChangedChanged() {
+			for (ProfileChangedWatcher p : changeWatchers)
+				p.profileIsChanged(this);
+		}
+		
 		public void setValueForPlastic(String key, String value) {
 			String profilePlastic = getValue("extrusion.csv:Profile Selection:");
 			// Base.logger.log(Level.FINEST, "Profile Selection: " + profilePlastic);
 			// Base.logger.log(Level.FINEST, "Setting value for key: " + (profilePlastic!=null ? profilePlastic + "/" : "") + key + " == " + value);
 			setValue((profilePlastic!=null ? profilePlastic + "/" : "") + key, value);
 		}
-
+		
+		public boolean isChanged() {
+			return (overrideMap.size() > 0);
+		}
+		
+		public void clearOverrides() {
+			boolean wasChanged = isChanged();
+			overrideMap.clear();
+			if (isChanged() != wasChanged)
+				notifyProfileChangedChanged();
+		}
+		
 		public boolean equals(Profile o) {
 			return profileFile.getName().equals(o.profileFile.getName());
 		}
@@ -294,6 +379,7 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 						} 
 						String[] tokens = line.split("\t");
 						String key = (subprofile==null?"":subprofile+"/")+subFile.getName()+":"+tokens[0];
+						Base.logger.log(Level.FINEST, "Loaded value for key: " + key + " = " + (tokens.length>1?tokens[1]:null));
 						settingMap.put(key, (tokens.length>1?tokens[1]:null));
 						store.addKey(tokens[0]);
 					}
@@ -329,7 +415,7 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 							writer.write(key+"\t");
 							String value = getValue(keyPrefix+key);
 							writer.write((value == null ? "" : value) + "\n");
-							Base.logger.log(Level.FINEST, "\t" + key + "==" + (value == null ? "<null>" : value));
+							Base.logger.log(Level.FINEST, keyPrefix+"\t" + key + "==" + (value == null ? "<null>" : value));
 						}
 						writer.close();
 					} catch (IOException ioe) {

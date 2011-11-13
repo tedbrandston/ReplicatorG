@@ -353,18 +353,23 @@ public class PrintOMatic5D implements SkeinforgePreference,ProfileWatcher {
 		final ProfileWatcher parentWatcher = this;
 		
 		addDropDownParameter(materialPanel, new KeyedValueSaver("extrusion.csv:Profile Selection:") {
+					boolean isInChanged = false;
 					@Override
 					public void valueChanged(String value) {
 						if (profile != null) {
 							Base.logger.log(Level.FINEST, " ### New Profile: " + value);
-							profile.setValue(key, value);
+							profile.setValue(key, value); // <- Don't save for plastic!
+							isInChanged = true;
 							parentWatcher.profileChanged(profile);
+							isInChanged = false;
 						}
 					}
 					@Override
 					public void profileChanged(Profile newProfile) {
+						if (isInChanged == true)
+							return;
 						super.profileChanged(newProfile);
-						String value = profile.getValue(key); // <- Don't save for plastic!
+						String value = profile.getValue(key); // <- Don't get for plastic!
 						if (model != null) {
 							// Now we wipe out the list, repopulate from the selected profile, and then select the correct one.
 							model.setSelectedItem(null);
