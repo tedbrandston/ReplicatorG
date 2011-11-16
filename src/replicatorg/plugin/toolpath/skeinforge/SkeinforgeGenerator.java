@@ -132,6 +132,8 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 			if (profiles.size() == 0)
 				getProfiles();
 			profile = profiles.get(getSelectedProfileName());
+			if (profile == null)
+				profile = profiles.values().iterator().next(); // how can this go wrong?
 			notifyProfileWatchers();
 		}
 		Base.logger.log(Level.FINEST, "Found a profile: " + (profile != null ? profile.getFullPath() : "NULL"));
@@ -165,6 +167,9 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 			}
 		}
 		Profile namedProfile = profiles.get(name);
+		if (namedProfile == null)
+			namedProfile = profiles.values().iterator().next(); // how can this go wrong?
+		
 		if (namedProfile != null) {
 			Base.preferences.put("replicatorg.skeinforge.profile", name);
 			profile = namedProfile;
@@ -265,6 +270,10 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 		public String getFullPath() {
 			return profileFile.getPath();
 		}
+		
+		public String getFullTempPath() {
+			return new File(profileFile.getParent(), this.toString()).getPath();
+		}
 
 		// Get the name as if it were modified
 		public String getNameModified() {
@@ -360,6 +369,7 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 					if ((depth == 0 && subFile.getName().matches("^(profiles)$")) || (depth == 1 && subFile.getName().matches("^(extrusion)$"))) {
 						scanProfileFolder(subFile, (String)null, depth+1, modified);
 					} else if (depth == 2) {
+						if (!subProfiles.contains(subFile.getName()))
 						subProfiles.add(subFile.getName());
 						scanProfileFolder(subFile, subFile.getName(), depth+1, modified);
 					}
@@ -424,10 +434,15 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 		
 		public void save(File basePath, String newName) {
 			boolean makinCopy = false;
+			boolean clearOverridesAfterSave = false;
 			File newBasePath = null;
 			
-			if (newName == null)
+			if (newName == null) {
 				newName = toString(); // we use toString's logic to grab the name, possibly including " [Modified]"
+			} else {
+				// We are specifically saving this profile with a new name, so we want to clear the overrides for this copy afterwards
+				clearOverridesAfterSave = true;
+			}
 				
 			if (!newName.equals(profileFile.getName())) {
 				/* the copymeister is*/ makinCopy = true;
@@ -483,6 +498,11 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 					}
 					
 				}
+			} // for
+			
+			// if we made a copy, we want to clear our changes and the other profile can read itself in
+			if (makinCopy && clearOverridesAfterSave) {
+				clearOverrides();
 			}
 		}
 	}
@@ -902,7 +922,7 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 		List<String> arguments = new LinkedList<String>();
 		// The -u makes python output unbuffered. Oh joyous day.
 		String[] baseArguments = { PythonUtils.getPythonPath(), "-u",
-				"skeinforge.py", "-p", profile.getFullPath() };
+				"skeinforge.py", "-p", profile.getFullTempPath() };
 		for (String arg : baseArguments) {
 			arguments.add(arg);
 		}

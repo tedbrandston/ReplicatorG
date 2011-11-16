@@ -31,6 +31,7 @@ class ConfigurationDialog extends JDialog implements Profile.ProfileChangedWatch
 	
 	JButton generateButton = new JButton("Generate Gcode");
 	JButton cancelButton = new JButton("Cancel");
+	JButton saveButton = new JButton("Save...");
 	
 	/* these must be explicitly nulled at close because of a java bug:
 	 * http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6497929
@@ -73,30 +74,11 @@ class ConfigurationDialog extends JDialog implements Profile.ProfileChangedWatch
 				if (isSelectedProfile)
 					menuModel.setSelectedItem(profile);
 			}
+			ConfigurationDialog.this.saveButton.setEnabled(false);
 		} else {
 			Base.logger.log(Level.FINEST, "profileIsChanged/insertElementAt");
 			menuModel.insertElementAt(profile.getName(), index);
-		}
-	}
-	
-	private class ProfileMenuActionListener implements ActionListener {
-		private ConfigurationDialog parent = null;
-		private SkeinforgeGenerator parentGenerator;
-		ProfileMenuActionListener(ConfigurationDialog parent, SkeinforgeGenerator parentGenerator) {
-			this.parent = parent;
-			this.parentGenerator = parentGenerator;
-		}
-		public void actionPerformed(ActionEvent arg0) {
-			String value = (String)prefPulldown.getSelectedItem().toString();
-			Profile oldProfile = parentGenerator.getSelectedProfile();
-			boolean changed = parentGenerator.setSelectedProfile(value);
-			// There's a chance that the profile won't actually change, if the user cancelled
-			if (changed) {
-				oldProfile.removeChangeWatcher(parent);
-				parentGenerator.getSelectedProfile().addChangeWatcher(parent);
-			} else {
-				parent.setSelectedProfile(oldProfile);
-			}
+			ConfigurationDialog.this.saveButton.setEnabled(true);
 		}
 	}
 	
@@ -127,22 +109,35 @@ class ConfigurationDialog extends JDialog implements Profile.ProfileChangedWatch
 		setTitle("GCode Generator");
 		setLayout(new MigLayout("aligny, top, ins 5, fill"));
 		
-		// have to set this. Something wrong with the initial use of the
-		// ListSelectionListener
 		generateButton.setEnabled(true);
+		saveButton.setEnabled(false);
 				
 		add(new JLabel("Base Profile:"), "split 2");
 		
 		loadList(prefPulldown);
-		prefPulldown.addActionListener(new ProfileMenuActionListener(this, parentGenerator));
+		prefPulldown.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent arg0) {
+				String value = (String)prefPulldown.getSelectedItem().toString();
+				Profile oldProfile = parentGenerator.getSelectedProfile();
+				boolean changed = parentGenerator.setSelectedProfile(value);
+				// There's a chance that the profile won't actually change, if the user cancelled
+				if (changed) {
+					oldProfile.removeChangeWatcher(ConfigurationDialog.this);
+					parentGenerator.getSelectedProfile().addChangeWatcher(ConfigurationDialog.this);
+				} else {
+					ConfigurationDialog.this.setSelectedProfile(oldProfile);
+				}
+			}
+		});
 		add(prefPulldown, "wrap, growx");
 
 		for (SkeinforgePreference preference: parentGenerator.preferences) {
 			add(preference.getUI(), "wrap");
 		}
 
-		add(generateButton, "tag ok, split 2");
-		add(cancelButton, "tag cancel");
+		add(cancelButton, "tag cancel, split 3");
+		add(saveButton, "tag finish");
+		add(generateButton, "tag ok");
 		generateButton.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
 				if(!parentGenerator.runSanityChecks()) {
@@ -161,6 +156,18 @@ class ConfigurationDialog extends JDialog implements Profile.ProfileChangedWatch
 			public void actionPerformed(ActionEvent arg0) {
 				parentGenerator.configSuccess = false;
 				setVisible(false);
+			}
+		});
+		saveButton.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent arg0) {
+				Profile p = parentGenerator.getSelectedProfile();
+				String newName = JOptionPane.showInputDialog(parent,
+						"Choose a name (don't change it to over):", p.getName());
+				if (newName != null) {
+					p.save(parentGenerator.getUserProfilesDir(), newName);
+					parentGenerator.setSelectedProfile(newName);
+					pack();
+				}
 			}
 		});
 		//add(buttonPanel, "wrap, growx");
