@@ -30,8 +30,8 @@ import com.sun.j3d.loaders.Scene;
 public class BuildModel extends BuildElement {
 
 	private File file;
-	private Transform3D transform = new Transform3D();
-	private Shape3D shape = null;
+	private Transform3D transform = new Transform3D(); 	//GL: this can become a matrix
+	private Shape3D shape = null;						//GL: this can become a display list (int)
 	private EditingModel editListener = null;
 	
 	public void setEditListener(EditingModel eModel) {
