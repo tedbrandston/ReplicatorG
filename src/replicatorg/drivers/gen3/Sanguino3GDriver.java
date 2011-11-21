@@ -2134,4 +2134,35 @@ public class Sanguino3GDriver extends SerialDriver
 	public boolean supportsSimultaneousTools() {
 		return true;
 	}
+	
+	public boolean setDebugCode(int newCode)
+	{
+		PacketBuilder pb = new PacketBuilder(MotherboardCommandCode.DEBUG_SET_DEBUG_CODE.getCode());
+		pb.add8((byte) 0);
+		pb.add8((byte) newCode);
+		try {
+			runCommand(pb.getPacket());
+		} catch (RetryException e) {
+			return false;
+		}
+		return true;
+	}
+	
+	public int getDebugCode()
+	{
+		PacketBuilder pb = new PacketBuilder(MotherboardCommandCode.DEBUG_GET_DEBUG_CODE.getCode());
+		pb.add8((byte) 0);
+		PacketResponse pr = runQuery(pb.getPacket());
+		return (int)pr.get8();
+	}
+	
+	public byte[] getDebugBuffer()
+	{
+		PacketBuilder pb = new PacketBuilder(MotherboardCommandCode.DEBUG_GET_DEBUG_BUFFER.getCode());
+		//The firmware doesn't expect anything to be in the query packet
+		// so we don't need to put anything in
+		
+		PacketResponse pr = runQuery(pb.getPacket());
+		return pr.getPayload();
+	}
 }

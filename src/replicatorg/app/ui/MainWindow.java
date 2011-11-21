@@ -1069,6 +1069,7 @@ ToolpathGenerator.GeneratorListener
 	JMenuItem toolheadIndexingItem = new JMenuItem("Set Toolhead Index...");
 	JMenuItem realtimeControlItem = new JMenuItem("Open real time controls window...");
 	JMenuItem infoPanelItem = new JMenuItem("Machine information...");
+	JMenuItem debugWindowItem = new JMenuItem("Debugging commands...");
 	JMenuItem preheatItem;
 
 	protected JMenu buildMachineMenu() {
@@ -1144,6 +1145,16 @@ ToolpathGenerator.GeneratorListener
 
 		infoPanelItem.setVisible(true);
 		menu.add(infoPanelItem);
+		
+		debugWindowItem.addActionListener(new ActionListener(){
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				if(!machineLoader.isConnected())
+					return;
+				
+				new DebugWindow((Sanguino3GDriver)machineLoader.getDriver()).setVisible(true);
+			}
+		});
 		
 		preheatItem = new JMenuItem("preheat Not Set");
 		preheatItem.addActionListener(new ActionListener(){
