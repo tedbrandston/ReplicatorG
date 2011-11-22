@@ -125,6 +125,7 @@ import replicatorg.drivers.MultiTool;
 import replicatorg.drivers.OnboardParameters;
 import replicatorg.drivers.RealtimeControl;
 import replicatorg.drivers.SDCardCapture;
+import replicatorg.drivers.gen3.Sanguino3GDriver;
 import replicatorg.dualstrusion.DualStrusionWorker;
 import replicatorg.machine.MachineFactory;
 import replicatorg.machine.MachineInterface;
@@ -1152,9 +1153,14 @@ ToolpathGenerator.GeneratorListener
 				if(!machineLoader.isConnected())
 					return;
 				
-				new DebugWindow((Sanguino3GDriver)machineLoader.getDriver()).setVisible(true);
+				DebugWindow tmp = new DebugWindow((Sanguino3GDriver)machineLoader.getDriver());
+				if(!tmp.failure)
+					tmp.setVisible(true);
+				
 			}
 		});
+		menu.add(debugWindowItem);
+		debugWindowItem.setEnabled(true);
 		
 		preheatItem = new JMenuItem("preheat Not Set");
 		preheatItem.addActionListener(new ActionListener(){
