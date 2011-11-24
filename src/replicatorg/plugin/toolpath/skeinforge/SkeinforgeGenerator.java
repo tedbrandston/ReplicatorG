@@ -132,7 +132,7 @@ public abstract class SkeinforgeGenerator extends ToolpathGenerator {
 			if (profiles.size() == 0)
 				getProfiles();
 			profile = profiles.get(getSelectedProfileName());
-			if (profile == null)
+			if (profile == null && profiles.values() != null && profiles.size() > 0)
 				profile = profiles.values().iterator().next(); // how can this go wrong?
 			notifyProfileWatchers();
 		}
