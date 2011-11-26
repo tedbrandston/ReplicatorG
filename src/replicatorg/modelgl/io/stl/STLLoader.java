@@ -22,14 +22,15 @@ import java.io.InterruptedIOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 
-import javax.media.opengl.GL;
 import javax.media.opengl.GL2;
 import javax.media.opengl.GLContext;
 import javax.vecmath.Vector3d;
 
 import org.j3d.loaders.stl.STLFileReader;
 
-import replicatorg.modelgl.ShapeList;
+import replicatorg.modelgl.Scene;
+import replicatorg.modelgl.TriangleDisplayList;
+import replicatorg.modelgl.TriangleList;
 import replicatorg.modelgl.io.Loader;
 
 import com.sun.j3d.loaders.IncorrectFormatException;
@@ -55,7 +56,7 @@ public class STLLoader implements Loader
     }
     
     @Override
-	public int[] load(String fileName) throws FileNotFoundException,
+	public Scene load(String fileName) throws FileNotFoundException,
     IncorrectFormatException, ParsingErrorException
     {
         try
@@ -69,7 +70,7 @@ public class STLLoader implements Loader
     }
 
     @Override
-	public int[] load(URL url) throws FileNotFoundException,
+	public Scene load(URL url) throws FileNotFoundException,
     IncorrectFormatException, ParsingErrorException
     {
         STLFileReader reader = null;
@@ -83,7 +84,9 @@ public class STLLoader implements Loader
             {
                 reader = new STLFileReader(url);
             }
-            return loadShapes(reader);
+            Scene s = loadShapes(reader);
+            s.setName(url.getFile());
+            return s;
         }
         catch( InterruptedIOException ie)
         {
@@ -96,7 +99,7 @@ public class STLLoader implements Loader
         }
     }
     
-	public static int[] loadShapes(final STLFileReader reader/*, final GLContext destContext*/)
+	public static Scene loadShapes(final STLFileReader reader/*, final GLContext destContext*/)
 	{
 		try
 		{
@@ -107,47 +110,36 @@ public class STLLoader implements Loader
             // The names of the objects
             final String[] objNames = reader.getObjectNames();
             
-            ShapeList sl = new ShapeList(GLContext.getCurrent(), -1);
-//            sl.setName(""); Can we get the file name here?
+            TriangleDisplayList[] objects = new TriangleDisplayList[numObjects];
             
             // Our GL to cry on 
             final GL2 gl = GLContext.getCurrentGL().getGL2();
-//            
-//            final int listStart = gl.glGenLists(numObjects);
-//            final int[] displayLists = new int[numObjects];
             
-            final double[] normal = new double[3];
-            final double[][] vertices = new double[3][3];
             for(int i = 0; i < numObjects; i++)
             {
-            	String name = objNames[i];
-            	if(name == null)
-            		name = "Untitled Object " + sl.getNumber();
-            	
-            	sl.beginSublist(name);
-
-        		gl.glBegin(GL.GL_TRIANGLES);
+	            final double[][] normals = new double[numFacets[i]][3];
+	            final double[][][] triangles = new double[numFacets[i]][3][3];
                 for(int j = 0; j < numFacets[i]; j++)
                 {
-                	if(reader.getNextFacet(normal, vertices))
+                	if(reader.getNextFacet(normals[j], triangles[j]))
                     {
-                        if (normal[0] == 0 && 
-                        	normal[1] == 0 &&
-                        	normal[2] == 0)
+                        if (normals[j][0] == 0 && 
+                        	normals[j][1] == 0 &&
+                        	normals[j][2] == 0)
                         {
                         	// Calculate normal
-                        	Vector3d v0 = new Vector3d(vertices[0]);
+                        	Vector3d v0 = new Vector3d(triangles[j][0]);
                         	v0.negate();
-                        	Vector3d v1 = new Vector3d(vertices[1]);
+                        	Vector3d v1 = new Vector3d(triangles[j][1]);
                         	v1.add(v0);
-                        	Vector3d v2 = new Vector3d(vertices[2]);
+                        	Vector3d v2 = new Vector3d(triangles[j][2]);
                         	v2.add(v0);
                         	Vector3d n = new Vector3d();
                         	n.cross(v1,v2);
                         	n.normalize();
-                        	normal[0] = n.x;
-                        	normal[1] = n.y;
-                        	normal[2] = n.z;
+                        	normals[j][0] = n.x;
+                        	normals[j][1] = n.y;
+                        	normals[j][2] = n.z;
                         }
                         // else normal has been provided
                     }
@@ -156,17 +148,11 @@ public class STLLoader implements Loader
                         throw new ParsingErrorException("STLLoader.loadShapes:"
                         		+ " reader failed to getNextFacet");
                     }
-                	
-                	// draw triangle to our gl object
-                	gl.glNormal3dv(normal, 0);
-                	gl.glVertex3dv(vertices[0], 0);
-                	gl.glVertex3dv(vertices[1], 0);
-                	gl.glVertex3dv(vertices[2], 0);
                 }
-                gl.glEnd();
-                
-                sl.endSublist();
+                TriangleList tl = new TriangleList(triangles, normals);
+                objects[i] = new TriangleDisplayList(tl); 
             }
+            return new Scene(objects);
 		}
         catch(InterruptedIOException ie)
         {
@@ -188,6 +174,5 @@ public class STLLoader implements Loader
                 e.printStackTrace();
             }
 		}
-		return null;
 	}
 }

@@ -18,8 +18,8 @@ import javax.vecmath.Matrix4d;
 import replicatorg.app.Base;
 import replicatorg.app.ui.modeling.EditingModel;
 import replicatorg.model.Build;
-import replicatorg.model.j3d.StlAsciiWriter;
 import replicatorg.modelgl.io.Loader;
+import replicatorg.modelgl.io.stl.StlAsciiWriter;
 import replicatorg.modelgl.io.stl.STLLoader;
 
 
@@ -27,7 +27,7 @@ public class BuildModel extends BuildElement {
 
 	private File file;
 	private Matrix4d transform = new Matrix4d();
-	private int[] shapes = null;						//GL: this can become a display list (int)
+	private Scene shapes = null;
 	private EditingModel editListener = null;
 	
 	public void setEditListener(EditingModel eModel) {
@@ -48,7 +48,7 @@ public class BuildModel extends BuildElement {
 		} catch (IOException ioe) { return null; }
 	}
 
-	public int[] getShapes() {
+	public Scene getShapes() {
 		if (shapes == null) { 
 			loadShapes();
 		}
@@ -59,8 +59,8 @@ public class BuildModel extends BuildElement {
 	// Attempt to load the file with the given loader.  Should return
 	// null if the given loader can't identify the file as being of
 	// the correct type.
-	private int[] loadShapes(Loader loader) {
-		int[] loaded = null;
+	private Scene loadShapes(Loader loader) {
+		Scene loaded = null;
 		try {
 			loaded = loader.load(file.getCanonicalPath());
 		} catch (Exception e) {
@@ -88,7 +88,7 @@ public class BuildModel extends BuildElement {
 			suffix = name.substring(idx+1);
 		}
 		// Attempt to find loader based on suffix
-		int[] candidate = null; 
+		Scene candidate = null; 
 		if (suffix != null) {
 			Loader loadCandidate = loaderExtensionMap.get(suffix.toLowerCase());
 			if (loadCandidate != null) {
@@ -256,7 +256,16 @@ public class BuildModel extends BuildElement {
 
 	@Override
 	void writeToStream(OutputStream ostream) {
-		// TODO Auto-generated method stub
-		
+		try {
+			StlAsciiWriter saw = new StlAsciiWriter(ostream);
+			saw.writeShape(getShapes(), getTransform());
+			ostream.close();
+			undo = new UndoManager();
+			setModified(false);
+		} catch (FileNotFoundException fnfe) {
+			Base.logger.log(Level.SEVERE,"Error during save",fnfe);
+		} catch (IOException ioe) {
+			Base.logger.log(Level.SEVERE,"Error during save",ioe);
+		}
 	}
 }

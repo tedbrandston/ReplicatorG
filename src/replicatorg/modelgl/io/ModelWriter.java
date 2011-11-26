@@ -5,6 +5,8 @@ import java.io.OutputStream;
 
 import javax.vecmath.Matrix4d;
 
+import replicatorg.modelgl.Scene;
+
 public abstract class ModelWriter {
 	protected OutputStream ostream;
 	
@@ -27,5 +29,5 @@ public abstract class ModelWriter {
 	 * @param shape
 	 * @param transform
 	 */
-	abstract public void writeShape(int[] shapes, Matrix4d transform);
+	abstract public void writeShape(Scene shapes, Matrix4d transform);
 }
