@@ -16,7 +16,7 @@ import javax.swing.undo.UndoableEdit;
 import javax.vecmath.Matrix4d;
 
 import replicatorg.app.Base;
-import replicatorg.app.ui.modeling.EditingModel;
+import replicatorg.app.ui.modelinggl.EditingModel;
 import replicatorg.model.Build;
 import replicatorg.modelgl.io.Loader;
 import replicatorg.modelgl.io.stl.StlAsciiWriter;
@@ -27,7 +27,7 @@ public class BuildModel extends BuildElement {
 
 	private File file;
 	private Matrix4d transform = new Matrix4d();
-	private Scene shapes = null;
+	private Scene shape = null;
 	private EditingModel editListener = null;
 	
 	public void setEditListener(EditingModel eModel) {
@@ -48,12 +48,12 @@ public class BuildModel extends BuildElement {
 		} catch (IOException ioe) { return null; }
 	}
 
-	public Scene getShapes() {
-		if (shapes == null) { 
+	public Scene getShape() {
+		if (shape == null) { 
 			loadShapes();
 		}
 
-		return shapes;
+		return shape;
 	}
 
 	// Attempt to load the file with the given loader.  Should return
@@ -105,7 +105,7 @@ public class BuildModel extends BuildElement {
 			}
 		}
 		if (candidate != null) {
-			shapes = candidate;
+			shape = candidate;
 		}
 	}
 
@@ -241,7 +241,7 @@ public class BuildModel extends BuildElement {
 			FileOutputStream ostream = new FileOutputStream(f);
 			Base.logger.info("Writing to "+f.getCanonicalPath()+".");
 			StlAsciiWriter saw = new StlAsciiWriter(ostream);
-			saw.writeShape(getShapes(), getTransform());
+			saw.writeShape(getShape(), getTransform());
 			ostream.close();
 			undo = new UndoManager();
 			setModified(false);
@@ -258,7 +258,7 @@ public class BuildModel extends BuildElement {
 	void writeToStream(OutputStream ostream) {
 		try {
 			StlAsciiWriter saw = new StlAsciiWriter(ostream);
-			saw.writeShape(getShapes(), getTransform());
+			saw.writeShape(getShape(), getTransform());
 			ostream.close();
 			undo = new UndoManager();
 			setModified(false);

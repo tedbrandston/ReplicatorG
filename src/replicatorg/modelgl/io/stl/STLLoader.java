@@ -24,6 +24,7 @@ import java.net.URL;
 
 import javax.media.opengl.GL2;
 import javax.media.opengl.GLContext;
+import javax.vecmath.Point3d;
 import javax.vecmath.Vector3d;
 
 import org.j3d.loaders.stl.STLFileReader;
@@ -112,20 +113,23 @@ public class STLLoader implements Loader
             
             TriangleDisplayList[] objects = new TriangleDisplayList[numObjects];
             
-            // Our GL to cry on 
-            final GL2 gl = GLContext.getCurrentGL().getGL2();
-            
             for(int i = 0; i < numObjects; i++)
             {
-	            final double[][] normals = new double[numFacets[i]][3];
-	            final double[][][] triangles = new double[numFacets[i]][3][3];
+	            final Point3d[] normals = new Point3d[numFacets[i]];
+	            final Point3d[][] triangles = new Point3d[numFacets[i]][3];
                 for(int j = 0; j < numFacets[i]; j++)
                 {
-                	if(reader.getNextFacet(normals[j], triangles[j]))
+                	double[] norm = new double[3];
+                	double[][] facet = new double[3][3];
+                	if(reader.getNextFacet(norm, facet))
                     {
-                        if (normals[j][0] == 0 && 
-                        	normals[j][1] == 0 &&
-                        	normals[j][2] == 0)
+                		triangles[j][0] = new Point3d(facet[0]);
+                		triangles[j][1] = new Point3d(facet[1]);
+                		triangles[j][2] = new Point3d(facet[2]);
+                		
+                        if (norm[0] == 0 && 
+                        	norm[1] == 0 &&
+                        	norm[2] == 0)
                         {
                         	// Calculate normal
                         	Vector3d v0 = new Vector3d(triangles[j][0]);
@@ -137,11 +141,13 @@ public class STLLoader implements Loader
                         	Vector3d n = new Vector3d();
                         	n.cross(v1,v2);
                         	n.normalize();
-                        	normals[j][0] = n.x;
-                        	normals[j][1] = n.y;
-                        	normals[j][2] = n.z;
+                        	normals[j] = new Point3d(n.x, n.y, n.z);
                         }
-                        // else normal has been provided
+                        else
+                    	{
+                        	//normal has been provided
+                        	normals[j] = new Point3d(norm);
+                    	}
                     }
                     else // failure when reading
                     {
@@ -151,6 +157,7 @@ public class STLLoader implements Loader
                 }
                 TriangleList tl = new TriangleList(triangles, normals);
                 objects[i] = new TriangleDisplayList(tl); 
+                objects[i].setName(objNames[i]);
             }
             return new Scene(objects);
 		}

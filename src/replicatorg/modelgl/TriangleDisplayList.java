@@ -1,29 +1,18 @@
 package replicatorg.modelgl;
 
-import javax.media.opengl.GL;
 import javax.media.opengl.GL2;
 import javax.media.opengl.GLContext;
-import javax.vecmath.Matrix4d;
+import javax.vecmath.Point3d;
 
 /**
  * A class for holding an opengl display list of triangles, along with any
  * necessary meta data.
- * 
- * might want to pull an interface out of this at some point, for anything that
- * uses something besides triangles? like quads?
  */
-public class TriangleDisplayList /*implements Shape*/{
+public class TriangleDisplayList extends Shape{
 
-	// We use this context to make sure all our display lists are on the same 
-	// GL pipeline
-	private final GLContext context;
-	private final int listNum;
-	
-	private String name;
-	
 	private final TriangleList triangles;
-	private Matrix4d transform;
 	
+	private AABB bboxCache;
 	/**
 	 * Constructs a new TriangleDisplayList in the given GLContext referring to
 	 * a display list with the given number.
@@ -37,28 +26,14 @@ public class TriangleDisplayList /*implements Shape*/{
 	 */
 	public TriangleDisplayList(TriangleList tl, GLContext context, int listNum)
 	{
+		super(context, listNum);
+		
 		if(tl == null)
 		{
 			throw new IllegalArgumentException(
 					"What's a TriangleDisplayList without triangles to display?");
 		}
 		triangles = tl;
-		
-		if(context == null)
-			this.context = GLContext.getCurrent();
-		else
-			this.context = context;
-		
-		if(listNum == -1)
-		{
-			this.context.makeCurrent();
-			GL2 gl = this.context.getGL().getGL2();
-			this.listNum = gl.glGenLists(1);
-		}
-		else
-		{
-			this.listNum = listNum;
-		}
 		
 		compile();
 	}
@@ -73,70 +48,38 @@ public class TriangleDisplayList /*implements Shape*/{
 	}
 	
 	/**
-	 * Draws this list to its GLContext, wraps glCallList
-	 */
-	public void callList()
-	{
-		context.makeCurrent();
-		GL2 gl = context.getGL().getGL2();
-		
-		double[] matrix = new double[]{
-				transform.m00, transform.m01, transform.m02, transform.m03,
-				transform.m10, transform.m11, transform.m12, transform.m13,
-				transform.m20, transform.m21, transform.m22, transform.m23,
-				transform.m30, transform.m31, transform.m32, transform.m33
-		};
-		
-		gl.glMatrixMode(GL2.GL_MODELVIEW);
-		gl.glPushMatrix();
-		
-		gl.glMultMatrixd(matrix, 0);
-		gl.glCallList(listNum);
-		
-		gl.glPopMatrix();
-	}
-	
-	/**
 	 * reconstruct our list to call all our sublists
 	 */
-	private void compile()
+	/*
+	 * While we're looping through stuff, we can also re-calculate our AABB
+	 */
+	@Override
+	public void compile()
 	{
 		context.makeCurrent();
 		GL2 gl = context.getGL().getGL2();
 		
-		double[][][] t = triangles.getTriangleArray();
-		double[][] n = triangles.getNormalArray();
+		Point3d[][] t = triangles.getTriangleArray();
+		Point3d[] n = triangles.getNormalArray();
+		
+		bboxCache = new AABB();
 		
 		gl.glNewList(listNum, GL2.GL_COMPILE);
 		for(int i = 0; i < triangles.length(); i++)
 		{
         	// draw triangle to our gl object
-        	gl.glNormal3dv(n[i], 0);
-        	gl.glVertex3dv(t[i][0], 0);
-        	gl.glVertex3dv(t[i][1], 0);
-        	gl.glVertex3dv(t[i][2], 0);
+        	gl.glNormal3d(n[i].x, n[i].y, n[i].z);
+        	gl.glVertex3d(t[i][0].x, t[i][0].y, t[i][0].z);
+        	gl.glVertex3d(t[i][1].x, t[i][1].y, t[i][1].z);
+        	gl.glVertex3d(t[i][2].x, t[i][2].y, t[i][2].z);
+        	
+        	// add the points to our bounding box 
+        	bboxCache.incorporate(t[i][0]);
+        	bboxCache.incorporate(t[i][1]);
+        	bboxCache.incorporate(t[i][2]);
 		}
 		gl.glEndList();
 		
-	}
-	
-	/**
-	 * The name of this ShapeList
-	 * @return The name of this ShapeList
-	 */
-	public String getName()
-	{
-		return name;
-	}
-	
-	public void setName(String name)
-	{
-		this.name = name;
-	}
-	
-	public int getNumber()
-	{
-		return listNum;
 	}
 	
 	public TriangleList getTriangles()
@@ -144,29 +87,21 @@ public class TriangleDisplayList /*implements Shape*/{
 		return triangles;
 	}
 	
-	public void setTransform(Matrix4d transform)
+	@Override
+	public AABB getBoundingBox()
 	{
-		this.transform = transform;
+		return bboxCache;
 	}
 	
-	public void transform(Matrix4d transform)
-	{
-		this.transform.mul(transform);
-	}
-	
+	@Override
 	public void applyTransform()
 	{
 		triangles.transform(transform);
+		transform.setIdentity();
+		compile();
 	}
-	
-	/**
-	 * Remove this display list.  Wraps glDeleteLists().
-	 */
-	public void delete()
-	{
-		context.makeCurrent();
-		GL2 gl = context.getGL().getGL2();
-		
-		gl.glDeleteLists(listNum, 1);
+	@Override
+	public TriangleDisplayList clone() {
+		return new TriangleDisplayList(triangles.clone());
 	}
 }

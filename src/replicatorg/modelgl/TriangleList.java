@@ -1,14 +1,15 @@
 package replicatorg.modelgl;
 
 import javax.vecmath.Matrix4d;
+import javax.vecmath.Point3d;
 
-public final class TriangleList {
+public final class TriangleList implements Cloneable{
 
-	private final double[][][] triangles;
-	private final double[][] normals;
+	private final Point3d[][] triangles;
+	private final Point3d[] normals;
 	private final int length;
 	
-	public TriangleList(double[][][] triangles, double[][] normals)
+	public TriangleList(Point3d[][] triangles, Point3d[] normals)
 	{
 		// verify input
 		if(triangles.length != normals.length)
@@ -29,17 +30,6 @@ public final class TriangleList {
 				throw new IllegalArgumentException(
 						"Each triangle needs exactly three points.");
 			}
-			
-			if( triangles[i][0].length != 3 ||
-				triangles[i][1].length != 3 ||
-				triangles[i][2].length != 3 ||
-				normals[i].length != 3) 
-			{
-				this.triangles = null;
-				this.normals = null;
-				throw new IllegalArgumentException(
-						"Each point needs exactly three dimensions.");
-			}
 		}
 		//done verifying!
 		
@@ -47,12 +37,12 @@ public final class TriangleList {
 		this.normals = normals;
 	}
 	
-	public double[][][] getTriangleArray()
+	public Point3d[][] getTriangleArray()
 	{
 		return triangles;
 	}
 
-	public double[][] getNormalArray()
+	public Point3d[] getNormalArray()
 	{
 		return normals;
 	}
@@ -67,6 +57,18 @@ public final class TriangleList {
 		// Yes, this method can throw NullPointerExceptions. we don't deal with
 		// them here, because you shouldn't try to use a TriangleList if it 
 		// hasn't been initialized properly
-		throw new UnsupportedOperationException();
+
+		for(int i = 0; i < length; i++)
+		{
+			trans.transform(triangles[i][0]);
+			trans.transform(triangles[i][1]);
+			trans.transform(triangles[i][2]);
+		}
+	}
+	
+	@Override
+	public TriangleList clone()
+	{
+		return new TriangleList(triangles.clone(), normals.clone());
 	}
 }
