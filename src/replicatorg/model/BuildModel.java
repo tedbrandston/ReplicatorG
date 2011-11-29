@@ -1,19 +1,19 @@
 package replicatorg.model;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
+import java.math.BigInteger;
+import java.security.MessageDigest;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
-import java.util.Stack;
-import java.math.BigInteger;
-import java.security.MessageDigest;
-
 
 import javax.media.j3d.Shape3D;
 import javax.media.j3d.Transform3D;
@@ -112,9 +112,9 @@ public class BuildModel extends BuildElement {
 					return "";
 				}
 			}
-		} 	catch(java.security.NoSuchAlgorithmException e) {
-				//throw new RuntimeException("Unable to close input stream for MD5 calculation", e);
-				System.out.println(e);
+		} catch(java.security.NoSuchAlgorithmException e) {
+			//throw new RuntimeException("Unable to close input stream for MD5 calculation", e);
+			System.out.println(e);
 		}
 		return "";
 	}
@@ -265,7 +265,8 @@ public class BuildModel extends BuildElement {
 
 	public void redoEdit(Transform3D edit)
 	{
-		String x = xformStack.push("redo of ???");
+		String x = "redo of ???";
+		xformStack.push(x);
 		System.out.println("XXX push? doEdit:" + undo.getUndoOrRedoPresentationName() );
 		doEdit(edit, undo.canUndo());
 	}
