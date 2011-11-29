@@ -47,11 +47,9 @@ public class BuildCode extends BuildElement implements Comparable<BuildCode> {
 
 	// saved positions from last time this tab was used
 	public int selectionStart;
-
 	public int selectionStop;
-
 	public int scrollPosition;
-
+	
 	public BuildCode(String name, File file) {
 		this.name = name;
 		this.file = file;

@@ -228,7 +228,7 @@ public class EditingModel {
 		mainWindow.updateUndo();
 	}
 	
-	public void translateObject(double x, double y, double z) {
+	public void translateObject(double x, double y, double z, String moveType) {
 		// Skip identity translations
 		if (x == 0.0 && y == 0.0 && z == 0.0) { return; }
 		invalidateBounds();
@@ -238,7 +238,7 @@ public class EditingModel {
 		Transform3D old = new Transform3D();
 		shapeTransform.getTransform(old);
 		old.add(translate);
-		model.setTransform(old,"move",isNewOp());
+		model.setTransform(old,moveType,isNewOp());
 	}
 
 	private BoundingBox getBoundingBox(Group group) {
@@ -387,7 +387,7 @@ public class EditingModel {
 		double zoff = -lower.z;
 		double xoff = -(upper.x + lower.x)/2.0d;
 		double yoff = -(upper.y + lower.y)/2.0d;
-		translateObject(xoff, yoff, zoff);
+		translateObject(xoff, yoff, zoff, "center");
 	}
 
 	/**
@@ -398,7 +398,7 @@ public class EditingModel {
 		Point3d lower = new Point3d();
 		bb.getLower(lower);
 		double zoff = -lower.z;
-		translateObject(0d, 0d, zoff);
+		translateObject(0d, 0d, zoff, "toPlatform");
 	}
 
 	/**

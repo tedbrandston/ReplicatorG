@@ -16,7 +16,7 @@ public abstract class BuildElement {
 	
 	/** 
 	 * Classes which implement BuildElement.Listener can listen to
-	 * a build element and recieve updates when it changes.
+	 * a build element and receive updates when it changes.
 	 */
 	public interface Listener {
 		/**
@@ -49,8 +49,9 @@ public abstract class BuildElement {
 	protected Build parent = null;
 		
 	public enum Type {
-		MODEL("model"),
-		GCODE("gcode");
+		MODEL("model"), ///3d model, probably STL
+		GCODE("gcode"), /// gcode of an unkonwn type/class
+		MB_GCODE("mb.gcode"); /// makerbot tagged gcode. 
 		
 		private String displayString;
 		Type(String displayString) { this.displayString = displayString; }

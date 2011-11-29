@@ -84,7 +84,7 @@ public class MoveTool extends Tool {
 				if (txt != null) {
 					try {
 						double transXval = Base.getLocalFormat().parse(txt).doubleValue();
-						parent.getModel().translateObject(transXval, 0, 0);
+						parent.getModel().translateObject(transXval, 0, 0,"move");
 					} catch (Exception e) {
 						Base.logger.fine("Problem parsing number or translating object.");
 					}
@@ -97,7 +97,7 @@ public class MoveTool extends Tool {
 				if (txt != null) {
 					try {
 						double transXval = Base.getLocalFormat().parse(txt).doubleValue();
-						parent.getModel().translateObject(-transXval, 0, 0);
+						parent.getModel().translateObject(-transXval, 0, 0,"move");
 					} catch (Exception e) {
 						Base.logger.fine("Problem parsing number or translating object.");
 					}
@@ -110,7 +110,7 @@ public class MoveTool extends Tool {
 				if (txt != null) {
 					try {
 						double transYval = Base.getLocalFormat().parse(txt).doubleValue();
-						parent.getModel().translateObject(0,transYval, 0);
+						parent.getModel().translateObject(0,transYval, 0,"move");
 					} catch (Exception e) {
 						Base.logger.fine("Problem parsing number or translating object.");
 					}
@@ -123,7 +123,7 @@ public class MoveTool extends Tool {
 				if (txt != null) {
 					try {
 						double transYval = Base.getLocalFormat().parse(txt).doubleValue();
-						parent.getModel().translateObject(0,-transYval,0);
+						parent.getModel().translateObject(0,-transYval,0,"move");
 					} catch (Exception e) {
 						Base.logger.fine("Problem parsing number or translating object.");
 					}
@@ -136,7 +136,7 @@ public class MoveTool extends Tool {
 				if (txt != null) {
 					try {
 						double transZval = Base.getLocalFormat().parse(txt).doubleValue();
-						parent.getModel().translateObject(0,0,transZval);
+						parent.getModel().translateObject(0,0,transZval,"move");
 					} catch (Exception e) {
 						Base.logger.fine("Problem parsing number or translating object.");
 					}
@@ -149,7 +149,7 @@ public class MoveTool extends Tool {
 				if (txt != null) {
 					try {
 						double transZval = Base.getLocalFormat().parse(txt).doubleValue();
-						parent.getModel().translateObject(0,0,-transZval);
+						parent.getModel().translateObject(0,0,-transZval,"move");
 					} catch (Exception e) {
 						Base.logger.fine("Problem parsing number or translating object.");
 					}
@@ -204,7 +204,7 @@ public class MoveTool extends Tool {
 		Vector3d v = new Vector3d(deltaX,deltaY,0d);
 		vt.transform(v);
 		if (lockZ.isSelected()) { v.z = 0d; }
-		parent.getModel().translateObject(v.x,v.y,v.z);
+		parent.getModel().translateObject(v.x, v.y, v.z, "move");
 	}
 
 }

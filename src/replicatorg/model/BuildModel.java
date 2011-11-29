@@ -3,11 +3,17 @@ package replicatorg.model;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
+import java.util.Stack;
+import java.math.BigInteger;
+import java.security.MessageDigest;
+
 
 import javax.media.j3d.Shape3D;
 import javax.media.j3d.Transform3D;
@@ -29,10 +35,14 @@ import com.sun.j3d.loaders.Scene;
 
 public class BuildModel extends BuildElement {
 
-	private File file;
+	private File file; /// 3d model File
 	private Transform3D transform = new Transform3D();
 	private Shape3D shape = null;
 	private EditingModel editListener = null;
+	
+	public File metadataFile; 
+	public String previousMD5;
+	public Deque<String> xformStack = new ArrayDeque<String>();
 	
 	public void setEditListener(EditingModel eModel) {
 		editListener = eModel;
@@ -40,11 +50,75 @@ public class BuildModel extends BuildElement {
 	
 	BuildModel(Build build, File file) {
 		this.file = file;
+		this.metadataFile = fileForMetadata(file);
 	}		
+
+	public File fileForMetadata(File baseFile)
+	{
+		String basePath = baseFile.getParent();
+		String baseFilename = baseFile.getName();
+		long lastMod = baseFile.lastModified();
+		String assumedMetadata = basePath + "/." + Long.toString(lastMod) + "." + baseFilename + ".json";
+		System.out.println(assumedMetadata);
+		Base.logger.severe("looking or metadata at " + assumedMetadata);
+
+		File md = new File(assumedMetadata);
+		if(md.exists() ) {
+			Base.logger.severe("we have previous edits at" + assumedMetadata);
+			return md;
+		}
+		Base.logger.severe("we DO NOT have previous edits at" + assumedMetadata);
+		return null;
+	}
 
 	public BuildElement.Type getType() {
 		return BuildElement.Type.MODEL;
 	}
+	
+	
+	public String md5FromFile(File file)
+	{
+		try { 
+			MessageDigest digest = MessageDigest.getInstance("MD5");
+			byte[] buffer = new byte[8192];
+			int read = 0;
+			InputStream is;
+			try {
+				is = new FileInputStream(file);
+			} catch(java.io.FileNotFoundException e) {
+					System.out.println(e);
+					return "";
+			}
+			try {
+				while( (read = is.read(buffer)) > 0) {
+					digest.update(buffer, 0, read);
+				}		
+				byte[] md5sum = digest.digest();
+				BigInteger bigInt = new BigInteger(1, md5sum);
+				String output = bigInt.toString(16);
+				System.out.println("MD5: " + output);
+				return output;
+			}
+			catch(IOException e) {
+				//throw new RuntimeException("Unable to process file for MD5", e);
+				return "";
+			}
+			finally {
+				try {
+					is.close();
+				}
+				catch(IOException e) {
+					//throw new RuntimeException("Unable to close input stream for MD5 calculation", e);
+					return "";
+				}
+			}
+		} 	catch(java.security.NoSuchAlgorithmException e) {
+				//throw new RuntimeException("Unable to close input stream for MD5 calculation", e);
+				System.out.println(e);
+		}
+		return "";
+	}
+
 
 	public String getPath() {
 		try {
@@ -56,13 +130,14 @@ public class BuildModel extends BuildElement {
 		if (shape == null) { 
 			loadShape();
 		}
-//		loadShape();
 		return shape;
 	}
 
-	// Attempt to load the file with the given loader.  Should return
-	// null if the given loader can't identify the file as being of
-	// the correct type.
+	/** Attempt to load the file with the given loader.  Should return null if the given 
+	 * loader can't identify the file as being of the correct type.
+	 * @param loader
+	 * @return
+	 */
 	private Shape3D loadShape(Loader loader) {
 		Scene scene = null;
 		try {
@@ -111,6 +186,10 @@ public class BuildModel extends BuildElement {
 
 	public Transform3D getTransform() { return transform; }
 	
+	/** 
+	 * This class is used for Undo/Redo operations for 3d manipulaton
+	 * @author 
+	 */
 	class UndoEntry implements UndoableEdit {
 		Transform3D before;
 		Transform3D after;
@@ -159,30 +238,50 @@ public class BuildModel extends BuildElement {
 			return true;
 		}
 		public void redo() throws CannotRedoException {
-			doEdit(after);
+			redoEdit(after);
 		}
 		public boolean replaceEdit(UndoableEdit edit) {
 			return false;
 		}
 		public void undo() throws CannotUndoException {
-			doEdit(before);
+			undoEdit(before);
 		}
 	}
 		
 	public void setTransform(Transform3D t, String description, boolean newOp) {
+		//xform.push("foo");
+		this.xformStack.push(description);
+		System.out.println("XXX spush etTransform:" + description);
+		System.out.println("XXX setTransform 2: " + t.getType());		
 		if (transform.equals(t)) return;
 		undo.addEdit(new UndoEntry(transform,t,description, newOp));
+		this.doEdit(t, true );
+//		transform.set(t);
+//		setModified(true);
+//		if (editListener != null) {
+//			editListener.modelTransformChanged();
+//		}
+	}
+
+	public void redoEdit(Transform3D edit)
+	{
+		String x = xformStack.push("redo of ???");
+		System.out.println("XXX push? doEdit:" + undo.getUndoOrRedoPresentationName() );
+		doEdit(edit, undo.canUndo());
+	}
+	
+	public void undoEdit(Transform3D edit) {
+		System.out.println("XXX pop? doEdit:" + undo.getUndoOrRedoPresentationName() );
+		String x = xformStack.pop();
+		doEdit(edit, undo.canUndo());
+	}
+	
+	public void doEdit(Transform3D t, boolean isModified) {
 		transform.set(t);
-		setModified(true);
+		setModified( isModified); //undo.canUndo());
 		if (editListener != null) {
 			editListener.modelTransformChanged();
 		}
-	}
-
-	public void doEdit(Transform3D edit) {
-		transform.set(edit);
-		setModified(undo.canUndo());
-		editListener.modelTransformChanged();
 	}
 	
 	private String getFileExtension(File file) {
@@ -234,7 +333,19 @@ public class BuildModel extends BuildElement {
 	}
 
 	private boolean saveInternal(File f) {
+
+		/// cache xform infom. 		undo.addEdit(new UndoEntry(transform,t,description, newOp));
+		String xforms = "";
+		System.out.println("**** undo testing");
+//		for( UndoableEdit e : undo )
+//		{
+//			System.out.println(e.getPresentationName());
+//			System.out.println(e );
+//		}
+		System.out.println("**** undo testing");
+
 		try {
+			previousMD5 = md5FromFile(f);
 			FileOutputStream ostream = new FileOutputStream(f);
 			Base.logger.info("Writing to "+f.getCanonicalPath()+".");
 			StlAsciiWriter saw = new StlAsciiWriter(ostream);
@@ -242,6 +353,27 @@ public class BuildModel extends BuildElement {
 			ostream.close();
 			undo = new UndoManager();
 			setModified(false);
+			
+			String newMd5 = md5FromFile(f);
+			if(metadataFile == null)
+			{
+				Base.logger.severe("we DO NOT have previous edits");
+				String editsJson = "{ \"first_seen_md5\":\"" + previousMD5 + "\", \"first_seen_name\"=\"" + file.getName() + "\" }";
+				String basePath = file.getParent();
+				String baseFilename = file.getName();
+				long newMod= file.lastModified();
+				String assumedMetadata = basePath + "/." + Long.toString(newMod) + "." + baseFilename + ".json";
+				Base.logger.severe("saving new fake previous edits to " + assumedMetadata);
+				File mdFile = new File(assumedMetadata);
+				Base.saveFile(editsJson, mdFile);
+				this.metadataFile = mdFile;
+			}
+			else { //metadataFile != null
+				this.updateMetadata(previousMD5, newMd5);
+				//appendLatestTransforms.
+			}
+
+
 			return true;
 		} catch (FileNotFoundException fnfe) {
 			Base.logger.log(Level.SEVERE,"Error during save",fnfe);
@@ -251,6 +383,32 @@ public class BuildModel extends BuildElement {
 		return false;
 	}
 
+	public void updateMetadata(String prevMD5, String newMd5)
+	{
+		String basePath = file.getParent();
+		String baseFilename = file.getName();
+		long newMod = file.lastModified();
+		File mdFile = null;
+		String assumedMetadata = basePath + "/." + Long.toString(newMod) + "." + baseFilename + ".json";
+		try { 
+			String previousData = Base.loadFile(metadataFile);
+			String newMetadata = previousData + 
+					"{ \"old_md5\":\"" + prevMD5 + "\", \"new_md5\":\"" + newMd5 +"\" \"xforms\"=[]}";
+			mdFile = new File(assumedMetadata);
+			Base.saveFile(newMetadata, mdFile);
+		} catch ( java.io.IOException e)
+		{
+			mdFile = null;
+			System.out.println(e);
+			return;
+		}
+		if (mdFile != null) {
+			metadataFile.delete();
+			metadataFile = mdFile;
+		}
+	}
+
+	
 	@Override
 	void writeToStream(OutputStream ostream) {
 		// TODO Auto-generated method stub

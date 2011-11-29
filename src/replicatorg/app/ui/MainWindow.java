@@ -156,13 +156,9 @@ MRJPrefsHandler, MRJOpenDocumentHandler,
 MachineListener, ChangeListener,
 ToolpathGenerator.GeneratorListener
 {
-	/**
-	 * 
-	 */
 	private static final long serialVersionUID = 4144538738677712284L;
 
-	static final String WINDOW_TITLE = "ReplicatorG" + " - "
-	+ Base.VERSION_NAME;
+	static final String WINDOW_TITLE = "ReplicatorG" + " - " + Base.VERSION_NAME;
 
 
 	final static String MODEL_TAB_KEY = "MODEL";
@@ -1272,15 +1268,13 @@ ToolpathGenerator.GeneratorListener
 		{
 			MachineLoader ml = new MachineLoader();
 			ml.load(mname);
-			System.out.println(ml.getMachine().getModel().getTools().size());
-			if(ml.getMachine().getModel().getTools().size() == 2)
-			{
+			if(ml.getMachine().getModel().getTools().size() == 2) {
 				return true;
 			}
 		}
 		catch(NullPointerException e)
 		{
-			System.err.println("Error");
+			System.err.println("Error checking for dual status");
 			e.printStackTrace();
 		}
 		return false;
@@ -1356,8 +1350,9 @@ ToolpathGenerator.GeneratorListener
 		}
 	}
 	
-	/* Function to generate a list of
-	 * supported machines to be displayed in the Driver menu item.
+	/**  
+	 * Generate a list of supported machines to be displayed in the Driver menu item.
+	 * Updates global machineMenu with available machines
 	 */
 	protected void populateMachineMenu() {
 		machineMenu.removeAll();
@@ -1860,12 +1855,15 @@ ToolpathGenerator.GeneratorListener
 		setEditorBusy(false);
 	}
 	
-	/// Enum to indicate target build intention
-	/// generate-from-stl and build, cancel build, or siply build from gcode
+	/** Enumeration to indicate target build intention. Options are 
+	 *  - re-generate gcode from stl and then build, 
+	 *  - build existing gcode 
+	 *  - cancel build
+	 */
 	enum BuildFlag
 	{
 		NONE(0), /// Canceled or software error
-		GEN_AND_BUILD(1), //genrate new gcode and build
+		GEN_AND_BUILD(1), //generate new gcode and build
 		JUST_BUILD(2); //expect someone checked for existing gcode, and build that
 		
 		public final int number;
@@ -1877,7 +1875,9 @@ ToolpathGenerator.GeneratorListener
 	};
 
 	/**
-	 * Checks some enviroment settings to detect the type of build desired
+	 * Checks environment and settings to detect the type of build desired, 
+	 * whether it's a simple 'build from gcode', if the gcode needs to be regenerated,
+	 * or if other pre-build steps need to be taken. 
 	 * @return a build flag to indicate build type/settings/etc
 	 */
 	public BuildFlag detectBuildIntention()
@@ -1914,7 +1914,7 @@ ToolpathGenerator.GeneratorListener
 				if(option == JOptionPane.CLOSED_OPTION) 	
 					flag = BuildFlag.NONE; //exit clicked
 				else if(option == 0 )  
-					flag = BuildFlag.GEN_AND_BUILD; //gen and builld
+					flag = BuildFlag.GEN_AND_BUILD; //gen and build
 				else if (option == 1) 
 					flag = BuildFlag.JUST_BUILD; //build from old generation
 			}
@@ -1922,6 +1922,11 @@ ToolpathGenerator.GeneratorListener
 		return flag;
 	}
 	
+	/** 
+	 * This function checks for the build 'intention' of the user,
+	 * and then runs the generate, the doBuild or both based on the 
+	 * current settings. 
+	 */
 	public void handleBuild() {
 		if (building)
 			return;
@@ -1933,18 +1938,22 @@ ToolpathGenerator.GeneratorListener
 		if(buildFlag == BuildFlag.NONE) {
 			return; //exit ro cancel clicked
 		}
-		if(buildFlag == BuildFlag.GEN_AND_BUILD) {
+		else if(buildFlag == BuildFlag.GEN_AND_BUILD) {
 			//'rewrite' clicked
 			buildOnComplete = true;
 			doPreheat(Base.preferences.getBoolean("build.doPreheat", false));				
 			runToolpathGenerator(Base.preferences.getBoolean("build.autoGenerateGcode", false));
 		}
-		if(buildFlag == BuildFlag.JUST_BUILD) {
+		else if(buildFlag == BuildFlag.JUST_BUILD) {
 			//'use existing' clicked
 			doBuild(); 
 		}
 	}
 	
+	/**
+	 * Starts a build running. 
+	 * Stops any running builts, sets GUI to busy and starts pre-heat system.
+	 */
 	public void doBuild()
 	{
 		if (!machineLoader.isLoaded()) {
@@ -1972,6 +1981,7 @@ ToolpathGenerator.GeneratorListener
 			{
 				buildStart = null;
 				setEditorBusy(false);
+				//TODO: do we also want to doPreheat(false);  here
 				building = false;
 			}
 		}
@@ -1996,7 +2006,6 @@ ToolpathGenerator.GeneratorListener
 			// build specific stuff
 			building = true;
 			//buttons.activate(MainButtonPanel.BUILD);
-
 			setEditorBusy(true);
 
 			// start our building thread.
@@ -3159,16 +3168,29 @@ ToolpathGenerator.GeneratorListener
 	}
 	
 	
-	/** Function called automatically when new gcode generation completes
-	 *  does post-processing for newly created gcode
+	/** 
+	 * Function called automatically when new gcode generation completes does post-processing 
+	 * for newly created gcode, switches to gcode view if needed
 	 * @param completion
 	 * @param details
 	 */
 	public void generationComplete(Completion completion, Object details) {
 
-		// if success, update header and switch to code view
+		// if success, do post gcode generation steps, and switch to code view
 		if (completion == Completion.SUCCESS) {
+
+						
 			if (build.getCode() != null) {
+				/// add metadata to the head of the gcode file, indicating
+				String taggedGcodeData = "(<data_namespace xmlns=\"http://spec.makerbot.com/2011/mb.gcode\">)\n(<printer type=\"Thingomatic\" mfg=\"MakerBot\">)\n(<axis id=\"x\" length=\"106\"/> <axis id=\"y\" length=\"120\"/> <axis id=\"z\" length=\"106\"/>)\n(<tools>)\n(<tool name=\"Plastruder MK5\" type=\"extruder\" automatedplatform=\"true\" heatedplatform=\"true\" heater=\"true\" uses_relay=\"false\"/>)\n(</tools>)\n(</printer>)\n(<consumable class=\"spool_plastic\" type=\"PLA\" size_mm=\"1.75\" color=\"black\"/>)\n(<objects><object filename=\"somefile\" md5sum=\"origional_md5\"></objects>)";
+				BuildCode code =  build.getCode();
+				code.program = taggedGcodeData + code.program;
+				code.setModified(true);
+				try {
+					code.save();
+				} catch (IOException e) {
+					Base.logger.severe( "fail to save. \n" );
+				}
 				setCode(build.getCode());
 			}
 			
@@ -3178,6 +3200,7 @@ ToolpathGenerator.GeneratorListener
 			if (isDualDriver()) {
 				singleMaterialDualstrusionModifications(build.getCode().file);
 			}
+			
 			
 			buttons.updateFromMachine(machineLoader.getMachine());
 			updateBuild();

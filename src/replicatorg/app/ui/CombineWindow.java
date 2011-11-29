@@ -303,7 +303,7 @@ public class CombineWindow extends JFrame
 		double halfDepth = bbUp.y;
 		double halfSpace = availableSpace/2;
 		// move to the front (Y - availableSpace/2 + boundingbox.high)
-		em.translateObject(0, halfDepth - halfSpace , 0);
+		em.translateObject(0, halfDepth - halfSpace , 0, "sharePlatform");
 
 		// calculate the offset from numReps, available space, and object size
 		double objDepth = halfDepth*2;
@@ -385,7 +385,7 @@ public class CombineWindow extends JFrame
 				generatorQueue.add(genThread);
 				
 				// Now we can move the shape for the next file
-				em.translateObject(0, offset, 0);
+				em.translateObject(0, offset, 0, "sharePlatform");
 			}
 			catch(IOException e)
 			{

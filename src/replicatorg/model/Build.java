@@ -42,12 +42,12 @@ import replicatorg.app.Base;
 import replicatorg.app.ui.MainWindow;
 
 /**
- * Stores information about files in the current build
+ * Stores information about files in the current build.
  */
 public class Build {
 
-	/** The editor window associated with this build.  We should remove this dependency or replace it with a
-	 * buildupdatelistener or the like. */
+	/** The editor window associated with this build.  We should remove this dependency or replace
+	 *  it with buildupdatelistener or the like. */
 	MainWindow editor;
 
 	private String name;
@@ -61,7 +61,6 @@ public class Build {
 	 * .dae - model file
 	 * .gcode - gcode file
 	 * .ngc - gcode file
-	 * .zip - composite build file
 	 */
 	String mainFilename;
 
@@ -88,6 +87,7 @@ public class Build {
 	
 	public Build(String path) throws IOException {
 		hasMainWindow = false;
+
 		if (path == null) {
 			mainFilename = null;
 			name = "Untitled";
@@ -201,11 +201,11 @@ public class Build {
 	public void loadCode() {
 		File codeFile = new File(folder, name + ".gcode");
 		if (codeFile.exists()) {
-			elements.add(new BuildCode(name, codeFile));
+			elements.add(new SmartBuildCode(name, codeFile));
 		} else {
 			codeFile = new File(folder, name + ".ngc");
 			if (codeFile.exists()) {
-				elements.add(new BuildCode(name, codeFile));
+				elements.add(new SmartBuildCode(name, codeFile));
 			}
 		}
 	}
@@ -290,11 +290,16 @@ public class Build {
 		File folder = new File(parentDir);
 
 		// Find base name
-		if (newName.toLowerCase().endsWith(".gcode")) newName = newName.substring(0, newName.length()-6);
-		if (newName.toLowerCase().endsWith(".ngc")) newName = newName.substring(0, newName.length()-4);
-		if (newName.toLowerCase().endsWith(".stl")) newName = newName.substring(0, newName.length()-4);
-		if (newName.toLowerCase().endsWith(".obj")) newName = newName.substring(0, newName.length()-4);
-		if (newName.toLowerCase().endsWith(".dae")) newName = newName.substring(0, newName.length()-4);
+		if (newName.toLowerCase().endsWith(".gcode")) 
+			newName = newName.substring(0, newName.length()-6);
+		if (newName.toLowerCase().endsWith(".ngc")) 
+			newName = newName.substring(0, newName.length()-4);
+		if (newName.toLowerCase().endsWith(".stl")) newName = 
+				newName.substring(0, newName.length()-4);
+		if (newName.toLowerCase().endsWith(".obj")) newName = 
+				newName.substring(0, newName.length()-4);
+		if (newName.toLowerCase().endsWith(".dae")) newName = 
+				newName.substring(0, newName.length()-4);
 
 
 		BuildCode code = getCode();
