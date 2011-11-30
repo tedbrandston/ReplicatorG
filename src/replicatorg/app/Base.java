@@ -235,8 +235,8 @@ public class Base {
 		if(enabled)
 		{
 			int option = JOptionPane.showConfirmDialog(null, 
-					"Multi-instance support is intended for users who run multiple bots,\n" +
-					"from the same computer, it is considered experimental functionality.\n" +
+					"Multi-instance support is intended for users who run multiple bots\n" +
+					"from the same computer; it is considered experimental functionality.\n" +
 					"Unless you run multiple instances this option is higly discouraged.\n\n" +
 					"Turning on multi-instance support requires a restart of ReplicatorG.\n\n" +
 					"Are you sure you want to turn multi-instance support on?",
