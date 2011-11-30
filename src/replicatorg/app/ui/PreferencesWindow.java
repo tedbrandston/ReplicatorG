@@ -19,6 +19,7 @@ import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.util.Vector;
 import java.util.logging.Level;
+import java.util.prefs.Preferences;
 
 import javax.swing.AbstractAction;
 import javax.swing.ButtonGroup;
@@ -163,41 +164,112 @@ public class PreferencesWindow extends JFrame implements GuiConstants {
 		}
 	}
 	
-	private JPanel makeMultiInstancePanel()
+	private JPanel multiInstancePanel;
+	private void addMultiInstanceTab(JTabbedPane tabPane)
 	{
-		JPanel panel = new JPanel();
+
+		multiInstancePanel = new JPanel();
 		
-		panel.setLayout(new MigLayout("fill"));
+		multiInstancePanel.setLayout(new MigLayout("fillx"));
 		
-		JLabel nameLabel = new JLabel("Instance name:");
-		JTextField nameBox = new JTextField();
+		JLabel descriptionLabel = new JLabel(
+				"<html>Multiple Instance Mode is intended for users running multiple bots from the same machine.<br/>" +
+				"It separates preferences by instance, so changing the machine type in one window doesn't<br/>" +
+				"change the machine type for another window.</html>");
 		
-		panel.add(nameLabel, "split");
-		panel.add(nameBox, "wrap");
+		multiInstancePanel.add(descriptionLabel, "wrap");
+		
+		JLabel newLabel = new JLabel("New Instance:");
+		final JTextField newBox = new JTextField();
+		JButton newButton = new JButton("Create New Instance"); 
+		newButton.addActionListener(new ActionListener(){
+			@Override
+			public void actionPerformed(ActionEvent evt) {
+				String newName = newBox.getText();
+				
+				if(newName.contains(","))
+				{
+					JOptionPane.showConfirmDialog(PreferencesWindow.this, "Preference names cannot contain commas.", 
+							"No commas allowed!", JOptionPane.DEFAULT_OPTION, JOptionPane.ERROR_MESSAGE);
+					return;
+				}
+				
+				Base.newPreferences(newName);
+				refreshWindowTitle();
+			}
+		});
+		
+		multiInstancePanel.add(newLabel, "split");
+		multiInstancePanel.add(newBox, "split, growx");
+		multiInstancePanel.add(newButton, "wrap");
+
+		Preferences basePrefs = Preferences.userNodeForPackage(Base.class);
+		String prefsList = basePrefs.get("Base.preferencesList", null);
+		
+		JLabel selectionLabel = new JLabel("Select a different set of preferences");
+		final JComboBox<String> selectionCombo = new JComboBox<String>();
+
+		selectionCombo.addActionListener(new ActionListener(){
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				Base.loadPreferences((String)selectionCombo.getSelectedItem());
+			}
+		});
+		
+		multiInstancePanel.add(selectionLabel, "split");
+		multiInstancePanel.add(selectionCombo, "wrap");
+		
+		if(prefsList != null)
+		{
+			for(String s : prefsList.split(","))
+				selectionCombo.addItem(s);
+		}
+		else
+		{
+			selectionCombo.addItem("Default");
+		}
 		
 		JLabel moreSoon = new JLabel("More options coming soon!");
-		panel.add(moreSoon, "growx, growy");
+		multiInstancePanel.add(moreSoon, "growx, growy");
 		
-		return panel;
+		// Add it to our prefs
+		tabPane.add(multiInstancePanel, "Instances");
+		
+		int instIndex = tabPane.indexOfComponent(multiInstancePanel);
+		String instToolTip = "This tab contains options for controlling multiple ReplicatorG instances.";
+		tabPane.setToolTipTextAt(instIndex, instToolTip);
 	}
 	
-	private static String getWindowName()
+	private void removeMultiInstanceTab(JTabbedPane tabPane)
 	{
+		tabPane.remove(multiInstancePanel);
+	}
+	
+	private void refreshWindowTitle()
+	{
+		String title = "";
+		
 		if(Base.isMultiInstance())
-			return "Preferences for " + Base.getInstanceName();
+			title += "Preferences for " + Base.preferences.get("preference.name", "Default");
 		else
-			return "Preferences";
+			title += "Preferences";
+		
+		setTitle(title);
 	}
 	
 	public PreferencesWindow() {
-		super(getWindowName());
+		super();
+		refreshWindowTitle();
 		setResizable(true);
 		
 		Image icon = Base.getImage("images/icon.gif", this);
 		setIconImage(icon);
 		
 		// We separate our prefs into tabs
-		JTabbedPane prefsTabs = new JTabbedPane();
+		final JTabbedPane prefsTabs = new JTabbedPane();
+		
+		// For dealing with preferences for multiple instances of repg
+		JPanel instanceControl;
 		
 		// The 'basic' preferences. Actually the checkboxes right now, that should change.
 		JPanel basic = new JPanel();
@@ -356,16 +428,17 @@ public class PreferencesWindow extends JFrame implements GuiConstants {
 			}
 		});
 
-		final JCheckBox preheatCb = new JCheckBox("Preheat builds");
-		advanced.add(preheatCb, "split");
+		final JCheckBox preheatCheck = new JCheckBox("Preheat builds");
+		advanced.add(preheatCheck, "split");
 		
-		preheatCb.addActionListener(new ActionListener(){
+		preheatCheck.addActionListener(new ActionListener(){
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
-				Base.preferences.putBoolean("build.doPreheat", preheatCb.isSelected());
+				Base.preferences.putBoolean("build.doPreheat", preheatCheck.isSelected());
 			}
 		});
-		preheatCb.setSelected(Base.preferences.getBoolean("build.doPreheat", false));
+		preheatCheck.setSelected(Base.preferences.getBoolean("build.doPreheat", false));
+		preheatCheck.setToolTipText("With this on your machine will start preheating as soon as the build button is hit.");
 		
 		final JLabel t0Label = new JLabel("Toolhead0:");
 		final JLabel t1Label = new JLabel("Toolhead1:");
@@ -431,15 +504,24 @@ public class PreferencesWindow extends JFrame implements GuiConstants {
 		advanced.add(pLabel, "split, gap unrelated");
 		advanced.add(pField, "split, growx, wrap 10px");
 
-		JCheckBox multiInstCheck = new JCheckBox("Enable multiple instances (for users with multiple bots).");
+		JCheckBox multiInstCheck = new JCheckBox("Enable multiple sets of preferences (for users with multiple bots).");
 		multiInstCheck.setSelected(Base.preferences.getBoolean("Base.MultipleInstancesEnabled",false));
 		multiInstCheck.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				JCheckBox box = (JCheckBox)e.getSource();
-				Base.setMultiInstance(box.isSelected());
+				boolean checked = ((JCheckBox)e.getSource()).isSelected();
+				Base.setMultiInstance(checked);
+				
+				// I'm assuming that this event will always represent a change in state,
+				// hopefully that's a valid assumption.
+				if(checked)
+					addMultiInstanceTab(prefsTabs);
+				else
+					removeMultiInstanceTab(prefsTabs);
+				
 			}
 		});
-		multiInstCheck.setToolTipText("This option is for users who run multiple bots from the same computer concurrently, it keeps prefs for one instance from affecting another.");
+		multiInstCheck.setToolTipText("<html>This option is for users who run multiple bots from the same computer<br/>" +
+				" concurrently, it keeps prefs for one instance from affecting another.</html>");
 		advanced.add(multiInstCheck,"wrap");
 
 		JButton pythonButton = new JButton("Select Python interpreter...");
@@ -463,15 +545,7 @@ public class PreferencesWindow extends JFrame implements GuiConstants {
 		prefsTabs.setToolTipTextAt(advancedIndex, advancedToolTip);
 		
 		if(Base.isMultiInstance())
-		{
-			JPanel instanceControl = makeMultiInstancePanel();
-			
-			prefsTabs.add(instanceControl, "Instances");
-			
-			int instIndex = prefsTabs.indexOfComponent(instanceControl);
-			String instToolTip = "This tab contains options for controlling multiple ReplicatorG instances.";
-			prefsTabs.setToolTipTextAt(instIndex, instToolTip);
-		}
+			addMultiInstanceTab(prefsTabs);
 		
 		Container content = getContentPane();
 		content.setLayout(new MigLayout("fill"));
@@ -491,6 +565,11 @@ public class PreferencesWindow extends JFrame implements GuiConstants {
 			public void actionPerformed(ActionEvent evt) {
 				Base.resetPreferences();
 				showCurrentSettings();
+				
+				if(Base.isMultiInstance())
+					addMultiInstanceTab(prefsTabs);
+				else
+					removeMultiInstanceTab(prefsTabs);
 			}
 		});
 		content.add(delPrefs, "split");

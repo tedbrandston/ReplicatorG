@@ -118,15 +118,10 @@ public class Base {
 	/**
 	 * The user preferences store.
 	 */
-	static public Preferences preferences = Preferences.userNodeForPackage(Base.class);
+	static public Preferences preferences;
 	
 	static private boolean multiInstance;
 	{ multiInstance = preferences.getBoolean("Base.MultipleInstancesEnabled", false); }
-	/*
-	 * Things related to running multiple instances
-	 */
-	static private String instanceNameExternal = "Default Instance";
-	static private String instanceNameInternal;
 
 	/**
 	*  Simple base data capture logger. So simple, but useful.
@@ -186,86 +181,117 @@ public class Base {
 	 */
 	static public String openedAtStartup;
 
-	static public void loadPreferences()
+	static public void initPreferences()
 	{
-		if(multiInstance)
+		preferences = Preferences.userNodeForPackage(Base.class);
+		
+		loadPreferences(preferences.get("preference.default", null));
+		
+	}
+	static public void loadPreferences(String name)
+	{
+		if(name != null)
 		{
-			preferences = preferences.node(instanceNameInternal);
-			setInstanceName(preferences.get("Base.InstanceName", "Default Instance"));
+			try {
+				// A magic string, I know. The name for the default preferences 
+				//[Preferences.userNodeForPackage(Base.class), what everyone has used up to this point]
+				if(name == "Default")
+				{
+					//close our previous preferences
+					preferences.putBoolean("preference.isOpen", false);
+					preferences = Preferences.userNodeForPackage(Base.class);
+				}
+				else if(!preferences.nodeExists(name))
+				{
+					newPreferences(name);
+					return;
+				}
+				else
+				{
+					preferences = preferences.node(name);
+				}
+				
+			} catch (BackingStoreException e) {
+				logger.log(Level.SEVERE, "Could not load preferences", e);
+			}
 		}
+		// else, we're initializing on the Default
+		
+		if(preferences.getBoolean("preference.isOpen", false))
+		{
+			String fallback = preferences.get("preference.fallback", null);
+			if(fallback != null)
+			{
+				loadPreferences(fallback);
+			}
+			else
+			{
+				//Show warning
+				JOptionPane.showConfirmDialog(null, 
+						"It looks like multiple instances of ReplicatorG are\n" +
+						"using the same preferences at the same time.\n" +
+						"This can happen if ReplicatorG crashed or if you\n" +
+						"have multiple copies of it running, and this can\n" +
+						"cause confusing and unpredictable behavior.\n" +
+						"If you're sure there's only one RepG window open,\n" +
+						"ignore this message. If you want to run multiple\n" +
+						"copies of ReplicatorG, please turn on multi-instance\n" +
+						"support in File -> Preferences.", "Turn on multi-instance suport!", 
+						JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE);
+			}
+		}
+		else
+		{
+			preferences.putBoolean("preference.isOpen", true);
+			if(editor != null)
+				editor.refreshWindowTitle();
+		}
+	}
+	
+	static public void newPreferences(String name)
+	{
+			preferences.put("preference.fallback", name);
+			preferences.putBoolean("preference.isOpen", false);
+			
+			// preferences now points to our new prefs
+			preferences = preferences.node(name);
+			preferences.put("preference.name", name);
+			preferences.putBoolean("preference.isOpen", true);
+			
+			Preferences basePrefs = Preferences.userNodeForPackage(Base.class);
+			String prefsList = basePrefs.get("Base.preferencesList", "Default");
+			prefsList = prefsList.concat(","+name);
+			basePrefs.put("Base.preferencesList", prefsList);
+			
+			if(basePrefs.get("preference.default", null) == null)
+			{
+				basePrefs.put("preference.default", name);
+			}
+
+			if(editor != null)
+				editor.refreshWindowTitle();
 	}
 	
 	static public void resetPreferences() {
-		if(multiInstance)
-		{
-			Preferences basePrefs = Preferences.userNodeForPackage(Base.class);
-			try {
-				basePrefs.node(instanceNameInternal).removeNode();
-				basePrefs.node(instanceNameInternal).flush();
-			} catch (BackingStoreException e) {
-				logger.log(Level.SEVERE, "Could not reset preferences", e);
-			}
-		}
-		else //common case
-		{
-			resetGlobalPreferences();
-		}
-	}
-	
-	static public void resetGlobalPreferences() {
 		try {
-			if(Base.preferences != null)
-			{
-				Base.preferences.removeNode();
-				Base.preferences.flush();
-			}
-			preferences = Preferences.userNodeForPackage(Base.class);
+			Base.preferences = Preferences.userNodeForPackage(Base.class);
+			Base.preferences.removeNode();
+			Base.preferences.flush();
+			
+			initPreferences();
+			preferences.putBoolean("preference.isOpen", true);
 		} catch (BackingStoreException bse) {
 			bse.printStackTrace();
 		}
 	}
-	
+
 	static public boolean isMultiInstance()
 	{
-		return multiInstance;
+		return Preferences.userNodeForPackage(Base.class).getBoolean("Base.MultipleInstancesEnabled", false);
 	}
-	
 	static public void setMultiInstance(boolean enabled)
 	{
-		if(enabled)
-		{
-			int option = JOptionPane.showConfirmDialog(null, 
-					"Multi-instance support is intended for users who run multiple bots\n" +
-					"from the same computer; it is considered experimental functionality.\n" +
-					"Unless you run multiple instances this option is higly discouraged.\n\n" +
-					"Turning on multi-instance support requires a restart of ReplicatorG.\n\n" +
-					"Are you sure you want to turn multi-instance support on?",
-					"Turn on multi-instance suport?", JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
-
-			if(option == 1)
-				return;
-		}
-		else
-		{
-			// Do we need to warn people before turning it off?
-		}
-		
-		// We don't want to change this now, it'll be loaded on restart
-//		multiInstance = !multiInstance;
-
-		Base.preferences.putBoolean("Base.MultipleInstancesEnabled", enabled);
-		
-	}
-	
-	static public String getInstanceName()
-	{
-		return instanceNameExternal;
-	}
-	
-	static public void setInstanceName(String name)
-	{
-		instanceNameExternal = name;
-		preferences.put("Base.InstanceName", instanceNameExternal);
+		Preferences.userNodeForPackage(Base.class).putBoolean("Base.MultipleInstancesEnabled", enabled);
 	}
 	
 	static public String getToolsPath() {
@@ -428,59 +454,6 @@ public class Base {
 							+ "Java 1.5 or later to run properly.\n"
 							+ "Please visit java.com to upgrade.", null);
 		}
-		
-		// Handle multiple instances
-		int instanceNum = -1;
-		int inst;
-		// Check for existing instance of RepG running, figure out which instance we are
-		for(inst = 0; inst < (multiInstance ? 16 : 1); inst++)
-		{
-			try {
-				RandomAccessFile instanceCheck = new RandomAccessFile("instance" + inst, "rw");
-				FileChannel icChannel = instanceCheck.getChannel();
-				if(icChannel.tryLock() == null)
-					continue;
-				
-				//get the correct prefs for this instance
-				instanceNum = inst;
-				instanceNameInternal = "instance" + inst;
-				break;
-				
-			} catch (FileNotFoundException e) {
-				logger.log(Level.FINEST, "Could not check for open instances, this may prevent multiple instance mode from working.", e); 
-			} catch (IOException e) {
-				logger.log(Level.FINEST, "IOE when checking for open instances.", e);
-			}
-		}
-		
-		if(instanceNum == -1)
-		{
-			// Out of instances for multiInstance
-			if(inst == 16)
-			{
-				//FAR: This should probably have a better explanation. Suggestions?
-				JOptionPane.showConfirmDialog(null, "ReplicatorG only supports 16 instances running at any time.\n" +
-													"If you have fewer than sixteen instances running it's\n" +
-													"possible that there are some zombie processes running,\n" +
-													"maintaining locks when they should close. \n\n" +
-													"                You need to end them.", 
-													"Too many instances!", JOptionPane.DEFAULT_OPTION, JOptionPane.ERROR_MESSAGE);
-				return;
-			}
-			else
-			{
-				JOptionPane.showConfirmDialog(null, "ReplicatorG is generally only meant to run one instance at a time.\n" +
-												"It looks like this isn't the first instance of ReplicatorG open," +
-												"This can cause difficult-to-trace errors, and is not recommended.", 
-												"Too many instances!", JOptionPane.OK_OPTION, JOptionPane.WARNING_MESSAGE);
-				//Don't return; We've warned them
-			}
-			
-			// If we couldn't get an instance
-			multiInstance = false;
-		}
-		
-		loadPreferences();
 
 		if (Base.isMacOS()) {
 	         // Default to sun's XML parser, PLEASE.  Some apps are installing some janky-ass xerces.
@@ -548,6 +521,9 @@ public class Base {
     	// Use antialiasing implicitly
 		System.setProperty("j3d.implicitAntialiasing", "true");
 		
+		// Set up preferences
+		initPreferences();
+		
 		// Start the firmware check thread.
 		FirmwareUploader.checkFirmware();
 		
@@ -566,6 +542,7 @@ public class Base {
 		};
 		MRJApplicationUtils.registerOpenDocumentHandler(startupOpen);
 
+		
 		// Create the new application "Base" class.
 		new Base();
 	}

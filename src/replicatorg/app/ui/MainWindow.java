@@ -278,16 +278,35 @@ ToolpathGenerator.GeneratorListener
 
 	private MRUList mruList;
 
-	private static String getWindowTitle()
+	public void refreshWindowTitle()
 	{
+		String title = "";
+		
+		if(machineLoader != null)
+		{
+			if(machineLoader.isConnected())
+			{
+				String machineName = machineLoader.getMachine().getMachineName();
+				if(machineName != null)
+					title += machineName;
+			}
+			else
+			{
+				title += "Not Connected";
+			}
+		}
+		
+		title += " - " + WINDOW_TITLE;
+		
 		if(Base.isMultiInstance())
-			return WINDOW_TITLE + " instance " + Base.getInstanceName();
-		else
-			return WINDOW_TITLE;
+			title += " instance " + Base.preferences.get("preference.name", "Default Instance Name");
+		
+		setTitle(title);
 	}
 	
 	public MainWindow() {
-		super(getWindowTitle());
+		super();
+		refreshWindowTitle();
 		setLocationByPlatform(true);
 		MRJApplicationUtils.registerAboutHandler(this);
 		MRJApplicationUtils.registerPrefsHandler(this);
@@ -540,6 +559,8 @@ ToolpathGenerator.GeneratorListener
 		int location = splitPane.getDividerLocation();
 		Base.preferences.putInt("last.divider.location", location);
 
+		Base.preferences.putBoolean("preference.isOpen", false);
+		
 		try {
 			Base.preferences.flush();
 		} catch (BackingStoreException bse) {
@@ -1231,7 +1252,7 @@ ToolpathGenerator.GeneratorListener
 			if(isDualDriver())
 			{
 				JOptionPane.showMessageDialog( this,
-						"WARNING: Toolhead Index must be set one at a time on DualStrusion machines.  " +
+						"WARNING: Toolhead Index must be set one at a time on DualStrusion machines. \n" +
 						"See documentation at: http://www.makerbot.com/docs/dualstrusion for full instructions",
 						"Dualstrusion Extruder Board Warning:",
 						JOptionPane.WARNING_MESSAGE);
@@ -2251,14 +2272,8 @@ ToolpathGenerator.GeneratorListener
 		infoPanelItem.setEnabled(true);
 
 		// Advertise machine name
-		String name = "Not Connected";
 		if (evt.getState().isConnected() && machineLoader.isLoaded()) {
-			name = machineLoader.getMachine().getMachineName();
-		}
-		if (name != null) {
-			this.setTitle(name + " - " + getWindowTitle());
-		} else {
-			this.setTitle(getWindowTitle());
+			refreshWindowTitle();
 		}
 	}
 
