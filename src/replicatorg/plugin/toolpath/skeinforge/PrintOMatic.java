@@ -22,8 +22,10 @@ import replicatorg.app.Base;
 import replicatorg.app.ui.SavingTextField;
 import replicatorg.plugin.toolpath.skeinforge.SkeinforgeGenerator.SkeinforgeOption;
 import replicatorg.plugin.toolpath.skeinforge.SkeinforgeGenerator.SkeinforgePreference;
+import replicatorg.plugin.toolpath.skeinforge.SkeinforgeGenerator.Profile;
+import replicatorg.plugin.toolpath.skeinforge.SkeinforgeGenerator.ProfileWatcher;
 
-public class PrintOMatic implements SkeinforgePreference {
+public class PrintOMatic implements SkeinforgePreference,ProfileWatcher {
 	private JPanel component;
 	private JCheckBox enabled;
 	private String baseName;
@@ -228,6 +230,12 @@ public class PrintOMatic implements SkeinforgePreference {
 	}
 
 	public JComponent getUI() { return component; }
+	
+		
+	public void profileChanged(SkeinforgeGenerator.Profile p) {
+		// TODO: write this
+	}
+
 	
 	// Check the options to determine if they are in an acceptable range. Return null if
 	// everything is ok, or a string describing the error if they are not ok.

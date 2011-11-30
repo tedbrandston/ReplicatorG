@@ -3,7 +3,10 @@ package replicatorg.plugin.toolpath;
 import java.io.File;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Vector;
+import java.io.IOException;
+import java.util.logging.Level;
 
 import replicatorg.app.Base;
 import replicatorg.plugin.toolpath.skeinforge.PrintOMatic;
@@ -172,23 +175,42 @@ public class ToolpathGeneratorFactory {
 
 				PrintOMatic printOMatic = new PrintOMatic();
 				prefs.add(printOMatic);
+				addProfileWatcher(printOMatic);
 				
 				return prefs;
 			}
 		};
 		
-		class Skeinforge44 extends SkeinforgeGenerator {
+		class Skeinforge45 extends SkeinforgeGenerator {
 			public File getDefaultSkeinforgeDir() {
-		    	return Base.getApplicationFile("skein_engines/skeinforge-44/skeinforge_application");
+				return Base.getApplicationFile("skein_engines/skeinforge-45/skeinforge_application");
 			}
 			public File getUserProfilesDir() {
-		    	return Base.getUserFile("sf_44_profiles");
+				File profileDir = Base.getUserFile("sf_45_profiles", false);
+				if (!profileDir.exists()) {
+					ArrayList<File> pathsToTry = new ArrayList<File>();
+					pathsToTry.add(Base.getUserFile("sf_44_profiles", false));
+					pathsToTry.add(Base.getUserFile("sf_40_profiles", false));
+					
+					for (File path : pathsToTry) {
+						if (path.exists()) {
+							try {
+								Base.copyDir(path, profileDir);
+								break;
+							} catch (IOException ioe) {
+								Base.logger.log(Level.SEVERE,"Couldn't copy "+path+" to your local .replicatorG directory",ioe);
+							}
+						}
+					}
+				}
+				return profileDir;
 			}
 			public List<SkeinforgePreference> getPreferences() {
 				List <SkeinforgePreference> prefs = new LinkedList<SkeinforgePreference>();
 				
 				PrintOMatic5D printOMatic5D = new PrintOMatic5D();
 				prefs.add(printOMatic5D);
+				addProfileWatcher(printOMatic5D);
 				
 				return prefs;
 			}
@@ -200,9 +222,9 @@ public class ToolpathGeneratorFactory {
 		if((new Skeinforge40()).getDefaultSkeinforgeDir().exists())
 			list.add(new ToolpathGeneratorDescriptor("Skeinforge (40) - experimental", 
 				"This is a recent version of skeinforge.", Skeinforge40.class));
-		if((new Skeinforge44()).getDefaultSkeinforgeDir().exists())
-			list.add(new ToolpathGeneratorDescriptor("Skeinforge (44) - experimental", 
-				"This is an experimental version of skeinforge.", Skeinforge44.class));
+		if((new Skeinforge45()).getDefaultSkeinforgeDir().exists())
+			list.add(new ToolpathGeneratorDescriptor("Skeinforge (45) - experimental", 
+				"This is an experimental version of skeinforge.", Skeinforge45.class));
 		if((new Skeinforge31()).getDefaultSkeinforgeDir().exists())
 			list.add(new ToolpathGeneratorDescriptor("Skeinforge (31)", 
 				"This is an old version of skeinforge.", Skeinforge31.class));

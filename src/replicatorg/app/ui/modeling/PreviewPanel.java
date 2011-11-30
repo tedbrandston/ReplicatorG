@@ -265,9 +265,9 @@ public class PreviewPanel extends JPanel {
 	};
 
 	public Shape3D makeBoxFrame(Point3d ll, Vector3d dim) {
-        Appearance edges = new Appearance();
-        edges.setLineAttributes(new LineAttributes(3,LineAttributes.PATTERN_SOLID,true));
-        edges.setColoringAttributes(new ColoringAttributes(.9f,1f,1f,ColoringAttributes.NICEST));
+		Appearance edges = new Appearance();
+		edges.setLineAttributes(new LineAttributes(3,LineAttributes.PATTERN_SOLID,true));
+		edges.setColoringAttributes(new ColoringAttributes(.9f,1f,1f,ColoringAttributes.NICEST));
 		double[] coords = new double[wireBoxCoordinates.length];
 		for (int i = 0; i < wireBoxCoordinates.length;) {
 			coords[i] = (wireBoxCoordinates[i] * dim.x) + ll.x; i++;
@@ -287,18 +287,18 @@ public class PreviewPanel extends JPanel {
 			labelFont = new Font3D(Font.decode("Sans"), new FontExtrusion());
 		}
 		Text3D text = new Text3D(labelFont, s);
-        TransformGroup tg = new TransformGroup();
-        Transform3D transform = new Transform3D();
-        transform.setTranslation(where);
-        tg.setTransform(transform);
-        OrientedShape3D os = new OrientedShape3D();
-        os.setAlignmentAxis( 0.0f, 0.0f, 1.0f);
-        os.setAlignmentMode(OrientedShape3D.ROTATE_ABOUT_POINT);
-        os.setConstantScaleEnable(true);
-        os.setScale(0.05);
-        os.setGeometry(text);
-        tg.addChild(os);
-        return tg;
+		TransformGroup tg = new TransformGroup();
+		Transform3D transform = new Transform3D();
+		transform.setTranslation(where);
+		tg.setTransform(transform);
+		OrientedShape3D os = new OrientedShape3D();
+		os.setAlignmentAxis( 0.0f, 0.0f, 1.0f);
+		os.setAlignmentMode(OrientedShape3D.ROTATE_ABOUT_POINT);
+		os.setConstantScaleEnable(true);
+		os.setScale(0.05);
+		os.setGeometry(text);
+		tg.addChild(os);
+		return tg;
 	}
 	public Group makeAxes(Point3d origin) {
 		Group g = new Group();
@@ -319,14 +319,14 @@ public class PreviewPanel extends JPanel {
 		ColoringAttributes ca = new ColoringAttributes();
 		ca.setColor(color);
 		Appearance solid = new Appearance();
-		solid.setTransparencyAttributes(new TransparencyAttributes(TransparencyAttributes.NICEST,0.13f));
+		solid.setTransparencyAttributes(new TransparencyAttributes(TransparencyAttributes.NICEST,0.5f));
 		//solid.setMaterial(m);
 		solid.setColoringAttributes(ca);
 		PolygonAttributes pa = new PolygonAttributes();
 		pa.setPolygonMode(PolygonAttributes.POLYGON_FILL);
 		pa.setCullFace(PolygonAttributes.CULL_NONE);
 		pa.setBackFaceNormalFlip(true);
-	    solid.setPolygonAttributes(pa);
+		solid.setPolygonAttributes(pa);
 
 		double[] coords = new double[4*3];
 		loadPoint(lower,coords,0);

@@ -1,19 +1,14 @@
 package replicatorg.app.ui;
 
 import java.awt.Color;
-import java.awt.Toolkit;
 import java.awt.event.FocusEvent;
 import java.awt.event.FocusListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.text.Format;
-import java.text.ParseException;
-import java.util.logging.Level;
 
 import javax.swing.JFormattedTextField;
 import javax.swing.text.DefaultFormatter;
-
-import replicatorg.app.Base;
 
 
 // Text field that keeps track of whether it's data has been modified, and calls a function
@@ -111,7 +106,6 @@ public abstract class ActionTextField extends JFormattedTextField {
 		if(value != null)
 			setValue(value);
 		
-		Toolkit tk = Toolkit.getDefaultToolkit();
 		defaultColor = this.getBackground();
 		modifiedColor = new Color(128, 128, 255);
 		
