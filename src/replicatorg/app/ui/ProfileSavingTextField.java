@@ -21,12 +21,12 @@ public class ProfileSavingTextField extends ActionTextField implements ProfileWa
 	}
 	
 	public ProfileSavingTextField(String keyName, String text, int columns) {
-		super(text, columns, Base.getLocalFormat());
+		super(text, columns, null);
 		this.keyName = keyName;
 	}
 
 	public ProfileSavingTextField(CalculatedValueModifier calcModifier, int columns) {
-		super("", columns, Base.getLocalFormat());
+		super("", columns, null);
 		this.calcModifier = calcModifier;
 		this.keyName = null;
 	}

@@ -35,7 +35,6 @@ import java.awt.Font;
 import java.awt.Image;
 import java.awt.MediaTracker;
 import java.awt.Toolkit;
-//import java.awt.TrayIcon;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.awt.image.BufferedImage;
@@ -46,6 +45,7 @@ import java.io.BufferedWriter;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -53,7 +53,9 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.io.RandomAccessFile;
 import java.net.URL;
+import java.nio.channels.FileChannel;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.text.NumberFormat;
@@ -70,6 +72,7 @@ import java.util.prefs.Preferences;
 
 import javax.imageio.ImageIO;
 import javax.swing.JComponent;
+import javax.swing.JOptionPane;
 import javax.swing.JPopupMenu;
 import javax.swing.JRootPane;
 import javax.swing.KeyStroke;
@@ -100,7 +103,7 @@ public class Base {
 	/**
 	 * The version number of this edition of replicatorG.
 	 */
-	public static final int VERSION = 28;
+	public static final int VERSION = 29;
 	
 	/**
 	 * The textual representation of this version (4 digits, zero padded).
@@ -116,6 +119,14 @@ public class Base {
 	 * The user preferences store.
 	 */
 	static public Preferences preferences = Preferences.userNodeForPackage(Base.class);
+	
+	static private boolean multiInstance;
+	{ multiInstance = preferences.getBoolean("Base.MultipleInstancesEnabled", false); }
+	/*
+	 * Things related to running multiple instances
+	 */
+	static private String instanceNameExternal = "Default Instance";
+	static private String instanceNameInternal;
 
 	/**
 	*  Simple base data capture logger. So simple, but useful.
@@ -175,14 +186,86 @@ public class Base {
 	 */
 	static public String openedAtStartup;
 
+	static public void loadPreferences()
+	{
+		if(multiInstance)
+		{
+			preferences = preferences.node(instanceNameInternal);
+			setInstanceName(preferences.get("Base.InstanceName", "Default Instance"));
+		}
+	}
+	
 	static public void resetPreferences() {
+		if(multiInstance)
+		{
+			Preferences basePrefs = Preferences.userNodeForPackage(Base.class);
+			try {
+				basePrefs.node(instanceNameInternal).removeNode();
+				basePrefs.node(instanceNameInternal).flush();
+			} catch (BackingStoreException e) {
+				logger.log(Level.SEVERE, "Could not reset preferences", e);
+			}
+		}
+		else //common case
+		{
+			resetGlobalPreferences();
+		}
+	}
+	
+	static public void resetGlobalPreferences() {
 		try {
-			Base.preferences.removeNode();
-			Base.preferences.flush();
+			if(Base.preferences != null)
+			{
+				Base.preferences.removeNode();
+				Base.preferences.flush();
+			}
 			preferences = Preferences.userNodeForPackage(Base.class);
 		} catch (BackingStoreException bse) {
 			bse.printStackTrace();
 		}
+	}
+	
+	static public boolean isMultiInstance()
+	{
+		return multiInstance;
+	}
+	
+	static public void setMultiInstance(boolean enabled)
+	{
+		if(enabled)
+		{
+			int option = JOptionPane.showConfirmDialog(null, 
+					"Multi-instance support is intended for users who run multiple bots\n" +
+					"from the same computer; it is considered experimental functionality.\n" +
+					"Unless you run multiple instances this option is higly discouraged.\n\n" +
+					"Turning on multi-instance support requires a restart of ReplicatorG.\n\n" +
+					"Are you sure you want to turn multi-instance support on?",
+					"Turn on multi-instance suport?", JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
+
+			if(option == 1)
+				return;
+		}
+		else
+		{
+			// Do we need to warn people before turning it off?
+		}
+		
+		// We don't want to change this now, it'll be loaded on restart
+//		multiInstance = !multiInstance;
+
+		Base.preferences.putBoolean("Base.MultipleInstancesEnabled", enabled);
+		
+	}
+	
+	static public String getInstanceName()
+	{
+		return instanceNameExternal;
+	}
+	
+	static public void setInstanceName(String name)
+	{
+		instanceNameExternal = name;
+		preferences.put("Base.InstanceName", instanceNameExternal);
 	}
 	
 	static public String getToolsPath() {
@@ -345,13 +428,65 @@ public class Base {
 							+ "Java 1.5 or later to run properly.\n"
 							+ "Please visit java.com to upgrade.", null);
 		}
+		
+		// Handle multiple instances
+		int instanceNum = -1;
+		int inst;
+		// Check for existing instance of RepG running, figure out which instance we are
+		for(inst = 0; inst < (multiInstance ? 16 : 1); inst++)
+		{
+			try {
+				RandomAccessFile instanceCheck = new RandomAccessFile("instance" + inst, "rw");
+				FileChannel icChannel = instanceCheck.getChannel();
+				if(icChannel.tryLock() == null)
+					continue;
+				
+				//get the correct prefs for this instance
+				instanceNum = inst;
+				instanceNameInternal = "instance" + inst;
+				break;
+				
+			} catch (FileNotFoundException e) {
+				logger.log(Level.FINEST, "Could not check for open instances, this may prevent multiple instance mode from working.", e); 
+			} catch (IOException e) {
+				logger.log(Level.FINEST, "IOE when checking for open instances.", e);
+			}
+		}
+		
+		if(instanceNum == -1)
+		{
+			// Out of instances for multiInstance
+			if(inst == 16)
+			{
+				//FAR: This should probably have a better explanation. Suggestions?
+				JOptionPane.showConfirmDialog(null, "ReplicatorG only supports 16 instances running at any time.\n" +
+													"If you have fewer than sixteen instances running it's\n" +
+													"possible that there are some zombie processes running,\n" +
+													"maintaining locks when they should close. \n\n" +
+													"                You need to end them.", 
+													"Too many instances!", JOptionPane.DEFAULT_OPTION, JOptionPane.ERROR_MESSAGE);
+				return;
+			}
+			else
+			{
+				JOptionPane.showConfirmDialog(null, "ReplicatorG is generally only meant to run one instance at a time.\n" +
+												"It looks like this isn't the first instance of ReplicatorG open," +
+												"This can cause difficult-to-trace errors, and is not recommended.", 
+												"Too many instances!", JOptionPane.OK_OPTION, JOptionPane.WARNING_MESSAGE);
+				//Don't return; We've warned them
+			}
+			
+			// If we couldn't get an instance
+			multiInstance = false;
+		}
+		
+		loadPreferences();
 
 		if (Base.isMacOS()) {
 	         // Default to sun's XML parser, PLEASE.  Some apps are installing some janky-ass xerces.
 	         System.setProperty("javax.xml.parsers.DocumentBuilderFactory",
 	        		 "com.sun.org.apache.xerces.internal.jaxp.DocumentBuilderFactoryImpl");
-		 System.setProperty("com.apple.mrj.application.apple.menu.about.name",
-				    "ReplicatorG");
+	         System.setProperty("com.apple.mrj.application.apple.menu.about.name", "ReplicatorG");
 		}
 		
 		// parse command line input

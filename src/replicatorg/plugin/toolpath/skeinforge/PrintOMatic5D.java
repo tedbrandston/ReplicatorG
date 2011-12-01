@@ -3,13 +3,11 @@ package replicatorg.plugin.toolpath.skeinforge;
 import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.text.DecimalFormat;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Vector;
 import java.util.logging.Level;
-import java.text.NumberFormat;
-import java.text.DecimalFormat;
-import java.text.ParseException;
 
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JCheckBox;
@@ -18,18 +16,16 @@ import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTabbedPane;
-import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 
 import net.miginfocom.swing.MigLayout;
 import replicatorg.app.Base;
-import replicatorg.app.ui.ProfileSavingTextField;
 import replicatorg.app.ui.ProfileSavingCheckBox;
-import replicatorg.plugin.toolpath.skeinforge.SkeinforgeGenerator.SkeinforgeOption;
-import replicatorg.plugin.toolpath.skeinforge.SkeinforgeGenerator.SkeinforgePreference;
+import replicatorg.app.ui.ProfileSavingTextField;
 import replicatorg.plugin.toolpath.skeinforge.SkeinforgeGenerator.Profile;
 import replicatorg.plugin.toolpath.skeinforge.SkeinforgeGenerator.ProfileWatcher;
-import replicatorg.plugin.toolpath.skeinforge.SkeinforgeGenerator.ProfileKeyWatcher;
+import replicatorg.plugin.toolpath.skeinforge.SkeinforgeGenerator.SkeinforgeOption;
+import replicatorg.plugin.toolpath.skeinforge.SkeinforgeGenerator.SkeinforgePreference;
 
 public class PrintOMatic5D implements SkeinforgePreference,ProfileWatcher {
 	private JPanel component;
