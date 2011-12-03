@@ -361,7 +361,6 @@ public class DualStrusionWindow extends JFrame{
 		});
 		cont.add(help);
 		pack();
-		setVisible(true);	
 
 		Base.logger.log(Level.FINE, "Finishing construction of Dualstrusion window");
 	}

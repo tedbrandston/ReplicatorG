@@ -3,8 +3,8 @@ package replicatorg.plugin.toolpath;
 import java.awt.Frame;
 import java.util.LinkedList;
 
+import replicatorg.model.AbstractBuildModel;
 import replicatorg.model.BuildCode;
-import replicatorg.model.BuildModel;
 
 /**
  * This is the abstract base class which describes a toolpath plugin.
@@ -21,14 +21,14 @@ public abstract class ToolpathGenerator {
 		public void generationComplete(Completion completion, Object details);
 	}
 	
-	protected BuildModel model;
+	protected AbstractBuildModel model;
 	protected LinkedList<GeneratorListener> listeners = new LinkedList<GeneratorListener>();
 	
 	public void addListener(GeneratorListener listener) {
 		listeners.add(listener);
 	}
 	
-	public void setModel(BuildModel model) {
+	public void setModel(AbstractBuildModel model) {
 		this.model = model;
 	}
 	

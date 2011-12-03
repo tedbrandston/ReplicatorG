@@ -66,19 +66,19 @@ public abstract class Tool implements MouseMotionListener, MouseListener, MouseW
 		}
 	}
 	
-	abstract String getTitle();
-	abstract String getButtonName();
-	abstract Icon getButtonIcon();
-	abstract String getInstructions();
-	abstract JPanel getControls();
+	public abstract String getTitle();
+	public abstract String getButtonName();
+	public abstract Icon getButtonIcon();
+	public abstract String getInstructions();
+	public abstract JPanel getControls();
 	
-	final protected ToolPanel parent;
+	final public ToolPanel parent;
 	public Tool(ToolPanel parent) {
 		this.parent = parent;
 	}
 
-	protected Point startPoint = null;
-	protected int button = 0;
+	public Point startPoint = null;
+	public int button = 0;
 
 	public void mouseDragged(MouseEvent e) {
 		if (startPoint == null) return;

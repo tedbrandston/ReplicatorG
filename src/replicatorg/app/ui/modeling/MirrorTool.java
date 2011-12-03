@@ -7,6 +7,7 @@ import javax.swing.Icon;
 import javax.swing.JButton;
 import javax.swing.JPanel;
 
+
 import net.miginfocom.swing.MigLayout;
 
 public class MirrorTool extends Tool {
@@ -15,18 +16,18 @@ public class MirrorTool extends Tool {
 	}
 	
 	@Override
-	Icon getButtonIcon() {
+	public Icon getButtonIcon() {
 		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
-	String getButtonName() {
+	public String getButtonName() {
 		return "Mirror";
 	}
 
 	@Override
-	JPanel getControls() {
+	public JPanel getControls() {
 		JPanel p = new JPanel(new MigLayout("fillx,filly"));
 		JButton b;
 		b = createToolButton("Reflect in X","images/center-object.png");
@@ -62,7 +63,7 @@ public class MirrorTool extends Tool {
 	}
 
 	@Override
-	String getTitle() {
+	public String getTitle() {
 		return "Reflect object";
 	}
 

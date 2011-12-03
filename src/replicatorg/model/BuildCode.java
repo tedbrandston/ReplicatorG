@@ -112,7 +112,7 @@ public class BuildCode extends BuildElement implements Comparable<BuildCode> {
 	}
 
 	@Override
-	void writeToStream(OutputStream ostream) {
+	protected void writeToStream(OutputStream ostream) {
 		// TODO Auto-generated method stub
 		
 	}

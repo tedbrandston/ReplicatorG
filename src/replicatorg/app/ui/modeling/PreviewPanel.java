@@ -51,11 +51,12 @@ import javax.vecmath.Vector3f;
 import net.miginfocom.swing.MigLayout;
 import replicatorg.app.Base;
 import replicatorg.app.ui.MainWindow;
+import replicatorg.app.ui.modeling.j3d.EditingModel;
 import replicatorg.machine.Machine;
 import replicatorg.machine.MachineInterface;
 import replicatorg.machine.model.BuildVolume;
 import replicatorg.machine.model.MachineModel;
-import replicatorg.model.BuildModel;
+import replicatorg.model.j3d.BuildModel;
 
 import com.sun.j3d.utils.universe.SimpleUniverse;
 

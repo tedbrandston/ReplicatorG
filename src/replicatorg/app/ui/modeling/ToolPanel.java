@@ -11,6 +11,12 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.SwingConstants;
 
+import replicatorg.app.ui.modeling.j3d.EditingModel;
+import replicatorg.app.ui.modeling.j3d.MoveTool;
+import replicatorg.app.ui.modeling.j3d.RotationTool;
+import replicatorg.app.ui.modeling.j3d.ScalingTool;
+import replicatorg.app.ui.modeling.j3d.ViewTool;
+
 import net.miginfocom.swing.MigLayout;
 
 public class ToolPanel extends JPanel implements KeyListener {
@@ -71,7 +77,7 @@ public class ToolPanel extends JPanel implements KeyListener {
 		repaint();
 	}
 	
-	EditingModel getModel() { return preview.getModel(); }
+	public EditingModel getModel() { return preview.getModel(); }
 	
 	final JLabel infoLabel = new JLabel();
 	

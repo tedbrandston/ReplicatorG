@@ -86,5 +86,5 @@ public abstract class BuildElement {
 	 * Write this build element to the given output stream.  Ordinarily this is
 	 * called by Build during a save.
 	 */
-	abstract void writeToStream(OutputStream ostream);
+	protected abstract void writeToStream(OutputStream ostream);
 }

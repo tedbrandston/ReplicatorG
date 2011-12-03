@@ -114,7 +114,7 @@ import replicatorg.app.syntax.PdeTextAreaDefaults;
 import replicatorg.app.syntax.SyntaxDocument;
 import replicatorg.app.syntax.TextAreaPainter;
 import replicatorg.app.ui.controlpanel.ControlPanelWindow;
-import replicatorg.app.ui.modeling.PreviewPanel;
+import replicatorg.app.ui.modeling.gl.PreviewPanel;
 import replicatorg.app.util.PythonUtils;
 import replicatorg.app.util.SwingPythonSelector;
 import replicatorg.app.util.serial.Name;
@@ -133,10 +133,10 @@ import replicatorg.machine.MachineProgressEvent;
 import replicatorg.machine.MachineState;
 import replicatorg.machine.MachineStateChangeEvent;
 import replicatorg.machine.MachineToolStatusEvent;
+import replicatorg.model.AbstractBuildModel;
 import replicatorg.model.Build;
 import replicatorg.model.BuildCode;
 import replicatorg.model.BuildElement;
-import replicatorg.model.BuildModel;
 import replicatorg.model.JEditTextAreaSource;
 import replicatorg.plugin.toolpath.ToolpathGenerator;
 import replicatorg.plugin.toolpath.ToolpathGeneratorFactory;
@@ -225,7 +225,6 @@ ToolpathGenerator.GeneratorListener
 	JMenuItem buildMenuItem;
 	JMenuItem profilesMenuItem;
 	JMenuItem dualstrusionItem;
-	JMenuItem combineItem;
 	JMenu changeToolheadMenu = new JMenu("Swap Toolhead in .gcode");
 
 	
@@ -1058,17 +1057,6 @@ ToolpathGenerator.GeneratorListener
 		});
 		menu.add(dualstrusionItem);
 		setDualStrusionGUI();
-/*
-		combineItem = new JMenuItem("Row Combine (experimental)");
-		combineItem.addActionListener(new ActionListener(){
-			@Override
-			public void actionPerformed(ActionEvent arg0) {
-				handleCombination();
-			}
-		});
-		menu.add(combineItem);
-		combineItem.setEnabled(true);
-*/
 		
 		return menu;
 	}
@@ -1717,7 +1705,7 @@ ToolpathGenerator.GeneratorListener
 		textarea.requestFocus(); // get the caret blinking
 	}
 
-	public void setModel(BuildModel model) {
+	public void setModel(AbstractBuildModel model) {
 		if (model != null) {
 			getPreviewPanel().setModel(model);
 		}
@@ -2219,21 +2207,9 @@ ToolpathGenerator.GeneratorListener
 				dsw = new DualStrusionWindow(getBuild().getMainFilePath());	
 			else
 				dsw = new DualStrusionWindow();
-
-			//File f = dsw.getCombined();
-			//if(f != null)
-				//handleOpenFile(f);
+			dsw.setVisible(true);
 		}
 
-	}
-	
-	public void handleCombination()
-	{
-		CombineWindow cw;
-		if(getBuild() != null)
-			cw = new CombineWindow(getBuild().folder.getAbsolutePath() + File.separator + getBuild().getName() + ".stl", this);	
-		else
-			cw = new CombineWindow(this);
 	}
 
 	public void estimationOver() {

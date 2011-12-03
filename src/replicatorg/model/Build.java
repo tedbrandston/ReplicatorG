@@ -36,6 +36,7 @@ import javax.swing.JOptionPane;
 
 import replicatorg.app.Base;
 import replicatorg.app.ui.MainWindow;
+import replicatorg.model.j3d.BuildModel;
 
 /**
  * Stores information about files in the current build
@@ -248,7 +249,7 @@ public class Build {
 				}
 			}
 		}
-		BuildModel model = getModel();
+		AbstractBuildModel model = getModel();
 		if (model != null) {
 			if (model.isModified()) {
 				model.save();
@@ -307,7 +308,7 @@ public class Build {
 			code.saveAs(newFile);
 		}
 
-		BuildModel model = getModel();
+		AbstractBuildModel model = getModel();
 		if (model != null) {
 			File newFile = new File(folder, newName+".stl");
 			model.saveAs(newFile);
@@ -334,7 +335,7 @@ public class Build {
 	 */
 	public BuildModel getModel() {
 		for (BuildElement e : elements) {
-			if (e instanceof BuildModel) { return (BuildModel)e; }
+			if (e instanceof AbstractBuildModel) { return (BuildModel)e; }
 		}
 		return null;
 	}
