@@ -78,7 +78,7 @@ public class ToolPanel extends JPanel implements KeyListener {
 	
 	final JLabel infoLabel = new JLabel();
 	
-	ToolPanel(final PreviewPanel preview) {
+	public ToolPanel(final PreviewPanel preview) {
 		this.preview = preview;
 		setLayout(new MigLayout("gap 0,filly,wrap 1"));
 

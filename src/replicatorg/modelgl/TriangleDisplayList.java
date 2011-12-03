@@ -68,7 +68,8 @@ public class TriangleDisplayList extends Shape{
 		for(int i = 0; i < triangles.length(); i++)
 		{
         	// draw triangle to our gl object
-        	gl.glNormal3d(n[i].x, n[i].y, n[i].z);
+        	if(n != null)
+        		gl.glNormal3d(n[i].x, n[i].y, n[i].z);
         	gl.glVertex3d(t[i][0].x, t[i][0].y, t[i][0].z);
         	gl.glVertex3d(t[i][1].x, t[i][1].y, t[i][1].z);
         	gl.glVertex3d(t[i][2].x, t[i][2].y, t[i][2].z);

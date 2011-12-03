@@ -17,7 +17,7 @@ import javax.vecmath.Matrix4d;
 
 import replicatorg.app.Base;
 import replicatorg.app.ui.modelinggl.EditingModel;
-import replicatorg.model.Build;
+import replicatorg.modelgl.Build;
 import replicatorg.modelgl.io.Loader;
 import replicatorg.modelgl.io.stl.StlAsciiWriter;
 import replicatorg.modelgl.io.stl.STLLoader;
