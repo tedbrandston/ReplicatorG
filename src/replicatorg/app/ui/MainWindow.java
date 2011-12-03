@@ -161,7 +161,8 @@ ToolpathGenerator.GeneratorListener
 	 */
 	private static final long serialVersionUID = 4144538738677712284L;
 
-	static final String WINDOW_TITLE = "ReplicatorG" + " - " + Base.VERSION_NAME;
+	static final String WINDOW_TITLE = "ReplicatorG" + " - "
+	+ Base.VERSION_NAME;
 
 
 	final static String MODEL_TAB_KEY = "MODEL";
@@ -278,16 +279,8 @@ ToolpathGenerator.GeneratorListener
 
 	private MRUList mruList;
 
-	private static String getWindowTitle()
-	{
-		if(Base.isMultiInstance())
-			return WINDOW_TITLE + " instance " + Base.getInstanceName();
-		else
-			return WINDOW_TITLE;
-	}
-	
 	public MainWindow() {
-		super(getWindowTitle());
+		super(WINDOW_TITLE);
 		setLocationByPlatform(true);
 		MRJApplicationUtils.registerAboutHandler(this);
 		MRJApplicationUtils.registerPrefsHandler(this);
@@ -2256,9 +2249,9 @@ ToolpathGenerator.GeneratorListener
 			name = machineLoader.getMachine().getMachineName();
 		}
 		if (name != null) {
-			this.setTitle(name + " - " + getWindowTitle());
+			this.setTitle(name + " - " + WINDOW_TITLE);
 		} else {
-			this.setTitle(getWindowTitle());
+			this.setTitle(WINDOW_TITLE);
 		}
 	}
 

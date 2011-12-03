@@ -163,70 +163,39 @@ public class PreferencesWindow extends JFrame implements GuiConstants {
 		}
 	}
 	
-	private JPanel makeMultiInstancePanel()
-	{
-		JPanel panel = new JPanel();
-		
-		panel.setLayout(new MigLayout("fill"));
-		
-		JLabel nameLabel = new JLabel("Instance name:");
-		JTextField nameBox = new JTextField();
-		
-		panel.add(nameLabel, "split");
-		panel.add(nameBox, "wrap");
-		
-		JLabel moreSoon = new JLabel("More options coming soon!");
-		panel.add(moreSoon, "growx, growy");
-		
-		return panel;
-	}
-	
-	private static String getWindowName()
-	{
-		if(Base.isMultiInstance())
-			return "Preferences for " + Base.getInstanceName();
-		else
-			return "Preferences";
-	}
-	
 	public PreferencesWindow() {
-		super(getWindowName());
+		super("Preferences");
 		setResizable(true);
 		
 		Image icon = Base.getImage("images/icon.gif", this);
 		setIconImage(icon);
 		
-		// We separate our prefs into tabs
-		JTabbedPane prefsTabs = new JTabbedPane();
+		JTabbedPane basicVSadvanced = new JTabbedPane();
 		
-		// The 'basic' preferences. Actually the checkboxes right now, that should change.
 		JPanel basic = new JPanel();
 		
-		basic.setLayout(new MigLayout("fill"));
+//		Container content = this.getContentPane();
+		Container content = basic;
+		content.setLayout(new MigLayout("fill"));
 
-		basic.add(new JLabel("MainWindow font size: "), "split");
+		content.add(new JLabel("MainWindow font size: "), "split");
 		fontSizeField = new JFormattedTextField(Base.getLocalFormat());
 		fontSizeField.setColumns(4);
-		basic.add(fontSizeField);
-		basic.add(new JLabel("  (requires restart of ReplicatorG)"), "wrap");
+		content.add(fontSizeField);
+		content.add(new JLabel("  (requires restart of ReplicatorG)"), "wrap");
 
-		addCheckboxForPref(basic,"Monitor temperature during builds","build.monitor_temp",false);
-		addCheckboxForPref(basic,"Automatically connect to machine at startup","replicatorg.autoconnect",true);
-		addCheckboxForPref(basic,"Show experimental machine profiles","machine.showExperimental",false);
-		addCheckboxForPref(basic,"Review GCode for potential toolhead problems before building","build.safetyChecks",true);
-		addCheckboxForPref(basic,"Break Z motion into seperate moves (normally false)","replicatorg.parser.breakzmoves",false);
-		addCheckboxForPref(basic,"Show starfield in model preview window","ui.show_starfield",false);
-		addCheckboxForPref(basic,"Notifications in System tray","ui.preferSystemTrayNotifications",false);
-		addCheckboxForPref(basic,"Show warning when building from model w/ existing gcode","build.showRegenCheck",true);
-
-		prefsTabs.add(basic, "Basic");
-		int basicIndex = prefsTabs.indexOfComponent(basic);
-		String basicToolTip = "This tab contains basic, boolean options.";
-		prefsTabs.setToolTipTextAt(basicIndex, basicToolTip);
+		addCheckboxForPref(content,"Monitor temperature during builds","build.monitor_temp",false);
+		addCheckboxForPref(content,"Automatically connect to machine at startup","replicatorg.autoconnect",true);
+		addCheckboxForPref(content,"Show experimental machine profiles","machine.showExperimental",false);
+		addCheckboxForPref(content,"Review GCode for potential toolhead problems before building","build.safetyChecks",true);
+		addCheckboxForPref(content,"Break Z motion into seperate moves (normally false)","replicatorg.parser.breakzmoves",false);
+		addCheckboxForPref(content,"Show starfield in model preview window","ui.show_starfield",false);
+		addCheckboxForPref(content,"Notifications in System tray","ui.preferSystemTrayNotifications",false);
+		addCheckboxForPref(content,"Show warning when building from model w/ existing gcode","build.showRegenCheck",true);
 		
-		// The 'advanced' preferences
 		JPanel advanced = new JPanel();
-		advanced.setLayout(new MigLayout("fill"));
+		content = advanced;
+		content.setLayout(new MigLayout("fill"));
 		
 		JButton modelColorButton;
 		modelColorButton = new JButton("Choose model color");
@@ -246,7 +215,8 @@ public class PreferencesWindow extends JFrame implements GuiConstants {
 			}
 		});
 		modelColorButton.setVisible(true);
-		advanced.add(modelColorButton,"split");
+		content.add(modelColorButton,"split");
+		
 		
 		JButton backgroundColorButton;
 		backgroundColorButton = new JButton("Choose background color");
@@ -266,245 +236,229 @@ public class PreferencesWindow extends JFrame implements GuiConstants {
 			}
 		});
 		backgroundColorButton.setVisible(true);
-		advanced.add(backgroundColorButton,"wrap");
+		content.add(backgroundColorButton,"wrap");
 		
-		advanced.add(new JLabel("Firmware update URL: "),"split");
+		
+		content.add(new JLabel("Firmware update URL: "),"split");
 		firmwareUpdateUrlField = new JTextField(34);
-		advanced.add(firmwareUpdateUrlField,"growx, wrap");
+		content.add(firmwareUpdateUrlField,"growx, wrap");
 
-		JLabel arcResolutionLabel = new JLabel("Arc resolution (in mm): ");
-		advanced.add(arcResolutionLabel,"split");
-		double arcValue = Base.preferences.getDouble("replicatorg.parser.curve_segment_mm", 1.0);
-		JFormattedTextField arcResolutionField = new JFormattedTextField(Base.getLocalFormat());
-		arcResolutionField.setValue(new Double(arcValue));
-		advanced.add(arcResolutionField);
-		String arcResolutionHelp = "<html><small><em>" +
-			"The arc resolution is the default segment length that the gcode parser will break arc codes <br>"+
-			"like G2 and G3 into.  Drivers that natively handle arcs will ignore this setting." +
-			"</em></small></html>";
-		arcResolutionField.setToolTipText(arcResolutionHelp);
-		arcResolutionLabel.setToolTipText(arcResolutionHelp);
-//			advanced.add(new JLabel(arcResolutionHelp),"growx,wrap");
-		arcResolutionField.setColumns(10);
-		arcResolutionField.addPropertyChangeListener(new PropertyChangeListener() {
-			public void propertyChange(PropertyChangeEvent evt) {
-				if (evt.getPropertyName() == "value") {
-					try {
-						Double v = (Double)evt.getNewValue();
-						if (v == null) return;
-						Base.preferences.putDouble("replicatorg.parser.curve_segment_mm", v.doubleValue());
-					} catch (ClassCastException cce) {
-						Base.logger.warning("Unexpected value type: "+evt.getNewValue().getClass().toString());
-					}
-				}
-			}
-		});
-
-		JLabel sfTimeoutLabel = new JLabel("Skeinforge timeout: ");
-		advanced.add(sfTimeoutLabel,"split, gap unrelated");
-		int timeoutValue = Base.preferences.getInt("replicatorg.skeinforge.timeout", -1);
-		JFormattedTextField sfTimeoutField = new JFormattedTextField(Base.getLocalFormat());
-		sfTimeoutField.setValue(new Integer(timeoutValue));
-		advanced.add(sfTimeoutField,"wrap 10px, growx");
-		String sfTimeoutHelp = "<html><small><em>" +
-			"The Skeinforge timeout is the number of seconds that replicatorg will wait while the<br>" +
-			"Skeinforge preferences window is open. If you find that RepG freezes after editing profiles<br>" +
-			"you can set this number greater than -1 (-1 means no timeout)." +
-			"</em></small></html>";
-		sfTimeoutField.setToolTipText(sfTimeoutHelp);
-		sfTimeoutLabel.setToolTipText(sfTimeoutHelp);
-//			advanced.add(new JLabel(sfTimeoutHelp),"growx,wrap");
-		sfTimeoutField.setColumns(10);
-		sfTimeoutField.addPropertyChangeListener(new PropertyChangeListener() {
-			public void propertyChange(PropertyChangeEvent evt) {
-				if (evt.getPropertyName() == "value") {
-					try {
-						Integer v = (Integer)evt.getNewValue();
-						if (v == null) return;
-						Base.preferences.putInt("replicatorg.skeinforge.timeout", v.intValue());
-					} catch (ClassCastException cce) {
-						Base.logger.warning("Unexpected value type: "+evt.getNewValue().getClass().toString());
-					}
-				}
-			}
-		});
-
-		advanced.add(new JLabel("Debugging level (default INFO):"),"split");
-		advanced.add(makeDebugLevelDropdown(), "wrap");
-
-		final JCheckBox logCb = new JCheckBox("Log to file");
-		logCb.setSelected(Base.preferences.getBoolean("replicatorg.useLogFile",false));
-		advanced.add(logCb, "split");
-		logCb.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent e) {
-				Base.preferences.putBoolean("replicatorg.useLogFile",logCb.isSelected());
-			}
-		});
-		
-		final JLabel logPathLabel = new JLabel("Log file name: "); 
-		advanced.add(logPathLabel,"split");
-		logPathField = new JTextField(34);
-		advanced.add(logPathField,"growx, wrap 10px");
-		logPathField.setEnabled(logCb.isSelected());
-		logPathLabel.setEnabled(logCb.isSelected());
-
-		logCb.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent e) {
-				JCheckBox box = (JCheckBox)e.getSource();
-				logPathField.setEnabled(box.isSelected());
-				logPathLabel.setEnabled(box.isSelected());
-			}
-		});
-
-		final JCheckBox preheatCb = new JCheckBox("Preheat builds");
-		advanced.add(preheatCb, "split");
-		
-		preheatCb.addActionListener(new ActionListener(){
-			@Override
-			public void actionPerformed(ActionEvent arg0) {
-				Base.preferences.putBoolean("build.doPreheat", preheatCb.isSelected());
-			}
-		});
-		preheatCb.setSelected(Base.preferences.getBoolean("build.doPreheat", false));
-		
-		final JLabel t0Label = new JLabel("Toolhead0:");
-		final JLabel t1Label = new JLabel("Toolhead1:");
-		final JLabel pLabel = new JLabel("Platform:");
-		
-		Integer t0Value = Base.preferences.getInt("build.preheatTool0", 75);
-		Integer t1Value = Base.preferences.getInt("build.preheatTool1", 75);
-		Integer pValue = Base.preferences.getInt("build.preheatPlatform", 75);
-		
-		final JFormattedTextField t0Field = new JFormattedTextField(Base.getLocalFormat());
-		final JFormattedTextField t1Field = new JFormattedTextField(Base.getLocalFormat());
-		final JFormattedTextField pField = new JFormattedTextField(Base.getLocalFormat());
-
-		t0Field.setValue(t0Value);
-		t1Field.setValue(t1Value);
-		pField.setValue(pValue);
-		
-		// let's avoid creating too many ActionListeners, also is fewer lines (and just as clear)!
-		ActionListener a = new ActionListener(){
-			@Override
-			public void actionPerformed(ActionEvent ae) {
-				double target;
-				if(ae.getSource() == t0Field)
-				{
-					// casting to long because that's what it is
-					target = ((Number)t0Field.getValue()).doubleValue();
-					target = confirmTemperature(target,"temperature.acceptedLimit",200.0);
-					if (target == Double.MIN_VALUE) {
-						return;
-					}
-					Base.preferences.putInt("build.preheatTool0", (int)target);
-				}
-				else if(ae.getSource() == t1Field)
-				{
-					// casting to long because that's what it is
-					target = ((Number)t1Field.getValue()).doubleValue();
-					target = confirmTemperature(target,"temperature.acceptedLimit",200.0);
-					if (target == Double.MIN_VALUE) {
-						return;
-					}
-					Base.preferences.putInt("build.preheatTool1", (int)target);
-				}
-				else if(ae.getSource() == pField)
-				{
-					// casting to long because that's what it is
-					target = ((Number)pField.getValue()).doubleValue();
-					target = confirmTemperature(target,"temperature.acceptedLimit.bed",90.0);
-					if (target == Double.MIN_VALUE) {
-						return;
-					}
-					Base.preferences.putInt("build.preheatPlatform", (int)target);
-				}
-			}
-		};
-		t0Field.addActionListener(a);
-		t1Field.addActionListener(a);
-		pField.addActionListener(a);
-
-		advanced.add(t0Label, "split, gap 20px");
-		advanced.add(t0Field, "split, growx");
-		advanced.add(t1Label, "split, gap unrelated");
-		advanced.add(t1Field, "split, growx");
-		advanced.add(pLabel, "split, gap unrelated");
-		advanced.add(pField, "split, growx, wrap 10px");
-
-		JCheckBox multiInstCheck = new JCheckBox("Enable multiple instances (for users with multiple bots).");
-		multiInstCheck.setSelected(Base.preferences.getBoolean("Base.MultipleInstancesEnabled",false));
-		multiInstCheck.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent e) {
-				JCheckBox box = (JCheckBox)e.getSource();
-				Base.setMultiInstance(box.isSelected());
-			}
-		});
-		multiInstCheck.setToolTipText("This option is for users who run multiple bots from the same computer concurrently, it keeps prefs for one instance from affecting another.");
-		advanced.add(multiInstCheck,"wrap");
-
-		JButton pythonButton = new JButton("Select Python interpreter...");
-		advanced.add(pythonButton,"spanx,wrap 10px");
-		pythonButton.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent e) {
-				SwingPythonSelector sps = new SwingPythonSelector(PreferencesWindow.this);
-				String path = sps.selectFreeformPath();
-				if (path != null) {
-					PythonUtils.setPythonPath(path);
-				}
-			}
-		});
-		
-
-		addInitialFilePrefs(advanced);
-		
-		prefsTabs.add(advanced, "Advanced");
-		int advancedIndex = prefsTabs.indexOfComponent(advanced);
-		String advancedToolTip = "This tab contains more complex options.";
-		prefsTabs.setToolTipTextAt(advancedIndex, advancedToolTip);
-		
-		if(Base.isMultiInstance())
 		{
-			JPanel instanceControl = makeMultiInstancePanel();
-			
-			prefsTabs.add(instanceControl, "Instances");
-			
-			int instIndex = prefsTabs.indexOfComponent(instanceControl);
-			String instToolTip = "This tab contains options for controlling multiple ReplicatorG instances.";
-			prefsTabs.setToolTipTextAt(instIndex, instToolTip);
+			JLabel arcResolutionLabel = new JLabel("Arc resolution (in mm): ");
+			content.add(arcResolutionLabel,"split");
+			double value = Base.preferences.getDouble("replicatorg.parser.curve_segment_mm", 1.0);
+			JFormattedTextField arcResolutionField = new JFormattedTextField(Base.getLocalFormat());
+			arcResolutionField.setValue(new Double(value));
+			content.add(arcResolutionField);
+			String arcResolutionHelp = "<html><small><em>" +
+				"The arc resolution is the default segment length that the gcode parser will break arc codes <br>"+
+				"like G2 and G3 into.  Drivers that natively handle arcs will ignore this setting." +
+				"</em></small></html>";
+			arcResolutionField.setToolTipText(arcResolutionHelp);
+			arcResolutionLabel.setToolTipText(arcResolutionHelp);
+//			content.add(new JLabel(arcResolutionHelp),"growx,wrap");
+			arcResolutionField.setColumns(10);
+			arcResolutionField.addPropertyChangeListener(new PropertyChangeListener() {
+				public void propertyChange(PropertyChangeEvent evt) {
+					if (evt.getPropertyName() == "value") {
+						try {
+							Double v = (Double)evt.getNewValue();
+							if (v == null) return;
+							Base.preferences.putDouble("replicatorg.parser.curve_segment_mm", v.doubleValue());
+						} catch (ClassCastException cce) {
+							Base.logger.warning("Unexpected value type: "+evt.getNewValue().getClass().toString());
+						}
+					}
+				}
+			});
 		}
 		
-		Container content = getContentPane();
-		content.setLayout(new MigLayout("fill"));
-		content.add(prefsTabs, "wrap, growx, growy");
+		{
+			JLabel sfTimeoutLabel = new JLabel("Skeinforge timeout: ");
+			content.add(sfTimeoutLabel,"split, gap unrelated");
+			int value = Base.preferences.getInt("replicatorg.skeinforge.timeout", -1);
+			JFormattedTextField sfTimeoutField = new JFormattedTextField(Base.getLocalFormat());
+			sfTimeoutField.setValue(new Integer(value));
+			content.add(sfTimeoutField,"wrap 10px, growx");
+			String sfTimeoutHelp = "<html><small><em>" +
+				"The Skeinforge timeout is the number of seconds that replicatorg will wait while the<br>" +
+				"Skeinforge preferences window is open. If you find that RepG freezes after editing profiles<br>" +
+				"you can set this number greater than -1 (-1 means no timeout)." +
+				"</em></small></html>";
+			sfTimeoutField.setToolTipText(sfTimeoutHelp);
+			sfTimeoutLabel.setToolTipText(sfTimeoutHelp);
+//			content.add(new JLabel(sfTimeoutHelp),"growx,wrap");
+			sfTimeoutField.setColumns(10);
+			sfTimeoutField.addPropertyChangeListener(new PropertyChangeListener() {
+				public void propertyChange(PropertyChangeEvent evt) {
+					if (evt.getPropertyName() == "value") {
+						try {
+							Integer v = (Integer)evt.getNewValue();
+							if (v == null) return;
+							Base.preferences.putInt("replicatorg.skeinforge.timeout", v.intValue());
+						} catch (ClassCastException cce) {
+							Base.logger.warning("Unexpected value type: "+evt.getNewValue().getClass().toString());
+						}
+					}
+				}
+			});
+		}
 		
+		{
+			content.add(new JLabel("Debugging level (default INFO):"),"split");
+			content.add(makeDebugLevelDropdown(), "wrap");
+
+			final JCheckBox logCb = new JCheckBox("Log to file");
+			logCb.setSelected(Base.preferences.getBoolean("replicatorg.useLogFile",false));
+			content.add(logCb, "split");
+			logCb.addActionListener(new ActionListener() {
+				public void actionPerformed(ActionEvent e) {
+					Base.preferences.putBoolean("replicatorg.useLogFile",logCb.isSelected());
+				}
+			});
+			
+			final JLabel logPathLabel = new JLabel("Log file name: "); 
+			content.add(logPathLabel,"split");
+			logPathField = new JTextField(34);
+			content.add(logPathField,"growx, wrap 10px");
+			logPathField.setEnabled(logCb.isSelected());
+			logPathLabel.setEnabled(logCb.isSelected());
+
+			logCb.addActionListener(new ActionListener() {
+				public void actionPerformed(ActionEvent e) {
+					JCheckBox box = (JCheckBox)e.getSource();
+					logPathField.setEnabled(box.isSelected());
+					logPathLabel.setEnabled(box.isSelected());
+				}
+			});
+
+		}
+		
+		{
+			final JCheckBox preheatCb = new JCheckBox("Preheat builds");
+			content.add(preheatCb, "split");
+			
+			preheatCb.addActionListener(new ActionListener(){
+				@Override
+				public void actionPerformed(ActionEvent arg0) {
+					Base.preferences.putBoolean("build.doPreheat", preheatCb.isSelected());
+				}
+			});
+			preheatCb.setSelected(Base.preferences.getBoolean("build.doPreheat", false));
+			
+			final JLabel t0Label = new JLabel("Toolhead0:");
+			final JLabel t1Label = new JLabel("Toolhead1:");
+			final JLabel pLabel = new JLabel("Platform:");
+			
+			Integer t0Value = Base.preferences.getInt("build.preheatTool0", 75);
+			Integer t1Value = Base.preferences.getInt("build.preheatTool1", 75);
+			Integer pValue = Base.preferences.getInt("build.preheatPlatform", 75);
+			
+			final JFormattedTextField t0Field = new JFormattedTextField(Base.getLocalFormat());
+			final JFormattedTextField t1Field = new JFormattedTextField(Base.getLocalFormat());
+			final JFormattedTextField pField = new JFormattedTextField(Base.getLocalFormat());
+
+			t0Field.setValue(t0Value);
+			t1Field.setValue(t1Value);
+			pField.setValue(pValue);
+			
+			// let's avoid creating too many ActionListeners, also is fewer lines (and just as clear)!
+			ActionListener a = new ActionListener(){
+				@Override
+				public void actionPerformed(ActionEvent ae) {
+					double target;
+					if(ae.getSource() == t0Field)
+					{
+						// casting to long because that's what it is
+						target = ((Number)t0Field.getValue()).doubleValue();
+						target = confirmTemperature(target,"temperature.acceptedLimit",200.0);
+						if (target == Double.MIN_VALUE) {
+							return;
+						}
+						Base.preferences.putInt("build.preheatTool0", (int)target);
+					}
+					else if(ae.getSource() == t1Field)
+					{
+						// casting to long because that's what it is
+						target = ((Number)t1Field.getValue()).doubleValue();
+						target = confirmTemperature(target,"temperature.acceptedLimit",200.0);
+						if (target == Double.MIN_VALUE) {
+							return;
+						}
+						Base.preferences.putInt("build.preheatTool1", (int)target);
+					}
+					else if(ae.getSource() == pField)
+					{
+						// casting to long because that's what it is
+						target = ((Number)pField.getValue()).doubleValue();
+						target = confirmTemperature(target,"temperature.acceptedLimit.bed",90.0);
+						if (target == Double.MIN_VALUE) {
+							return;
+						}
+						Base.preferences.putInt("build.preheatPlatform", (int)target);
+					}
+				}
+			};
+			t0Field.addActionListener(a);
+			t1Field.addActionListener(a);
+			pField.addActionListener(a);
+
+			content.add(t0Label, "split, gap 20px");
+			content.add(t0Field, "split, growx");
+			content.add(t1Label, "split, gap unrelated");
+			content.add(t1Field, "split, growx");
+			content.add(pLabel, "split, gap unrelated");
+			content.add(pField, "split, growx, wrap 10px");
+		}
+		
+		{
+			JButton b = new JButton("Select Python interpreter...");
+			content.add(b,"spanx,wrap 10px");
+			b.addActionListener(new ActionListener() {
+				public void actionPerformed(ActionEvent e) {
+					SwingPythonSelector sps = new SwingPythonSelector(PreferencesWindow.this);
+					String path = sps.selectFreeformPath();
+					if (path != null) {
+						PythonUtils.setPythonPath(path);
+					}
+				}
+			});
+		}
+
+		addInitialFilePrefs(content);
+
 		JButton allPrefs = new JButton("View All Prefs");
+		content.add(allPrefs, "split");
 		allPrefs.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				JFrame advancedPrefs = new AdvancedPrefs();
 				advancedPrefs.setVisible(true);
 			}
 		});
-		content.add(allPrefs, "split");
 
 		JButton delPrefs = new JButton("Restore all defaults (includes driver choice, etc.)");
+		content.add(delPrefs);
 		delPrefs.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent evt) {
 				Base.resetPreferences();
 				showCurrentSettings();
 			}
 		});
-		content.add(delPrefs, "split");
 
-		JButton closeButton;
-		closeButton = new JButton("Close");
-		closeButton.addActionListener(new ActionListener() {
+		JButton button;
+		button = new JButton("Close");
+		button.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				applyFrame();
 				dispose();
 			}
 		});
-		content.add(closeButton, "tag ok");
+		content.add(button, "tag ok");
 
+		basicVSadvanced.add(basic, "Basic");
+		basicVSadvanced.add(advanced, "Advanced");
+		getContentPane().add(basicVSadvanced);
+		
 		showCurrentSettings();
 
 		// closing the window is same as hitting cancel button
