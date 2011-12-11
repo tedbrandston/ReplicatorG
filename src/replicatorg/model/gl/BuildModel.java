@@ -93,10 +93,15 @@ public class BuildModel extends AbstractBuildModel {
 				if (candidate != null) { break; }
 			}
 		}
-		if (candidate != null) { shape = candidate; }
+		if (candidate != null) {
+			shape = candidate;
+		}
 	}
 
-	public Matrix4d getTransform() { return transform; }
+	@Override
+	public Matrix4d getTransform() {
+		return transform;
+	}
 	
 	class UndoEntry implements UndoableEdit {
 		Matrix4d before;

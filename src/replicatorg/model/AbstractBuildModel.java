@@ -3,6 +3,8 @@ package replicatorg.model;
 import java.io.File;
 import java.io.IOException;
 
+import javax.vecmath.Matrix4d;
+
 import replicatorg.app.Base;
 
 public abstract class AbstractBuildModel extends BuildElement {
@@ -72,5 +74,6 @@ public abstract class AbstractBuildModel extends BuildElement {
 	}
 	
 	protected abstract boolean saveInternal(File f);
-
+	
+	public abstract Matrix4d getTransform();
 }

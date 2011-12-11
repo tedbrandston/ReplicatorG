@@ -15,6 +15,7 @@ import javax.swing.undo.CannotRedoException;
 import javax.swing.undo.CannotUndoException;
 import javax.swing.undo.UndoManager;
 import javax.swing.undo.UndoableEdit;
+import javax.vecmath.Matrix4d;
 
 import org.j3d.renderer.java3d.loaders.ColladaLoader;
 import org.j3d.renderer.java3d.loaders.ObjLoader;
@@ -97,10 +98,17 @@ public class BuildModel extends AbstractBuildModel {
 				if (candidate != null) { break; }
 			}
 		}
-		if (candidate != null) { shape = candidate; }
+		if (candidate != null) {
+			shape = candidate;
+		}
 	}
 
-	public Transform3D getTransform() { return transform; }
+	@Override
+	public Matrix4d getTransform() {
+		Matrix4d result = new Matrix4d();
+		transform.get(result);
+		return result;
+	}
 	
 	class UndoEntry implements UndoableEdit {
 		Transform3D before;
@@ -182,7 +190,7 @@ public class BuildModel extends AbstractBuildModel {
 			FileOutputStream ostream = new FileOutputStream(f);
 			Base.logger.info("Writing to "+f.getCanonicalPath()+".");
 			StlAsciiWriter saw = new StlAsciiWriter(ostream);
-			saw.writeShape(getShape(), getTransform());
+			saw.writeShape(getShape(), transform);
 			ostream.close();
 			undo = new UndoManager();
 			setModified(false);

@@ -11,12 +11,6 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.SwingConstants;
 
-import replicatorg.app.ui.modeling.j3d.EditingModel;
-import replicatorg.app.ui.modeling.j3d.MoveTool;
-import replicatorg.app.ui.modeling.j3d.RotationTool;
-import replicatorg.app.ui.modeling.j3d.ScalingTool;
-import replicatorg.app.ui.modeling.j3d.ViewTool;
-
 import net.miginfocom.swing.MigLayout;
 
 public class ToolPanel extends JPanel implements KeyListener {
@@ -40,11 +34,11 @@ public class ToolPanel extends JPanel implements KeyListener {
 		});
 		return button;
 	}
-
-	final PreviewPanel preview;
-	final JPanel subPanel = new JPanel(new MigLayout("fillx,filly,ins 0,gap 0"));
 	
-	Tool[] tools = { 
+	final AbstractPreviewPanel preview;
+	final JPanel subPanel = new JPanel(new MigLayout("fillx,filly,ins 0,gap 0"));
+
+	private final Tool[] tools = { 
 			new ViewTool(this),
 			new MoveTool(this),
 			new RotationTool(this),
@@ -77,11 +71,17 @@ public class ToolPanel extends JPanel implements KeyListener {
 		repaint();
 	}
 	
-	public EditingModel getModel() { return preview.getModel(); }
+	public AbstractPreviewPanel getPreviewPanel() {
+		return preview;
+	}
+	
+	public AbstractEditingModel getEditingModel() {
+		return preview.getEditingModel();
+	}
 	
 	final JLabel infoLabel = new JLabel();
 	
-	ToolPanel(final PreviewPanel preview) {
+	public ToolPanel(final AbstractPreviewPanel preview) {
 		this.preview = preview;
 		setLayout(new MigLayout("gap 0,filly,wrap 1"));
 

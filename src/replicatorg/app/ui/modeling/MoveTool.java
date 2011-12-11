@@ -6,24 +6,23 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseEvent;
 
-import javax.media.j3d.Transform3D;
 import javax.swing.Icon;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JFormattedTextField;
 import javax.swing.JPanel;
+import javax.vecmath.Matrix4d;
 import javax.vecmath.Vector3d;
 
 import net.miginfocom.swing.MigLayout;
 import replicatorg.app.Base;
-import replicatorg.app.ui.modeling.PreviewPanel.DragMode;
 
 public class MoveTool extends Tool {
 	public MoveTool(ToolPanel parent) {
 		super(parent);
 	}
 	
-	Transform3D vt;
+	Matrix4d vt;
 
 	public Icon getButtonIcon() {
 		return null;
@@ -41,7 +40,7 @@ public class MoveTool extends Tool {
 		JButton centerButton = createToolButton("Center","images/center-object.png");
 		centerButton.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
-				parent.getModel().center();
+				parent.getEditingModel().center();
 			}
 		});
 		p.add(centerButton,"growx,wrap,spanx");
@@ -49,7 +48,7 @@ public class MoveTool extends Tool {
 		JButton lowerButton = createToolButton("Put on platform","images/center-object.png");
 		lowerButton.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
-				parent.getModel().putOnPlatform();
+				parent.getEditingModel().putOnPlatform();
 			}
 		});
 		p.add(lowerButton,"growx,wrap,spanx");
@@ -84,7 +83,7 @@ public class MoveTool extends Tool {
 				if (txt != null) {
 					try {
 						double transXval = Base.getLocalFormat().parse(txt).doubleValue();
-						parent.getModel().translateObject(transXval, 0, 0);
+						parent.getEditingModel().translateObject(transXval, 0, 0);
 					} catch (Exception e) {
 						Base.logger.fine("Problem parsing number or translating object.");
 					}
@@ -97,7 +96,7 @@ public class MoveTool extends Tool {
 				if (txt != null) {
 					try {
 						double transXval = Base.getLocalFormat().parse(txt).doubleValue();
-						parent.getModel().translateObject(-transXval, 0, 0);
+						parent.getEditingModel().translateObject(-transXval, 0, 0);
 					} catch (Exception e) {
 						Base.logger.fine("Problem parsing number or translating object.");
 					}
@@ -110,7 +109,7 @@ public class MoveTool extends Tool {
 				if (txt != null) {
 					try {
 						double transYval = Base.getLocalFormat().parse(txt).doubleValue();
-						parent.getModel().translateObject(0,transYval, 0);
+						parent.getEditingModel().translateObject(0,transYval, 0);
 					} catch (Exception e) {
 						Base.logger.fine("Problem parsing number or translating object.");
 					}
@@ -123,7 +122,7 @@ public class MoveTool extends Tool {
 				if (txt != null) {
 					try {
 						double transYval = Base.getLocalFormat().parse(txt).doubleValue();
-						parent.getModel().translateObject(0,-transYval,0);
+						parent.getEditingModel().translateObject(0,-transYval,0);
 					} catch (Exception e) {
 						Base.logger.fine("Problem parsing number or translating object.");
 					}
@@ -136,7 +135,7 @@ public class MoveTool extends Tool {
 				if (txt != null) {
 					try {
 						double transZval = Base.getLocalFormat().parse(txt).doubleValue();
-						parent.getModel().translateObject(0,0,transZval);
+						parent.getEditingModel().translateObject(0,0,transZval);
 					} catch (Exception e) {
 						Base.logger.fine("Problem parsing number or translating object.");
 					}
@@ -149,7 +148,7 @@ public class MoveTool extends Tool {
 				if (txt != null) {
 					try {
 						double transZval = Base.getLocalFormat().parse(txt).doubleValue();
-						parent.getModel().translateObject(0,0,-transZval);
+						parent.getEditingModel().translateObject(0,0,-transZval);
 					} catch (Exception e) {
 						Base.logger.fine("Problem parsing number or translating object.");
 					}
@@ -196,7 +195,7 @@ public class MoveTool extends Tool {
 		
 	public void mousePressed(MouseEvent e) {
 		// Set up view transform
-		vt = parent.preview.getViewTransform();
+		vt = parent.getPreviewPanel().getViewTransform();
 		super.mousePressed(e);
 	}
 	
@@ -204,7 +203,7 @@ public class MoveTool extends Tool {
 		Vector3d v = new Vector3d(deltaX,deltaY,0d);
 		vt.transform(v);
 		if (lockZ.isSelected()) { v.z = 0d; }
-		parent.getModel().translateObject(v.x,v.y,v.z);
+		parent.getEditingModel().translateObject(v.x,v.y,v.z);
 	}
 
 }

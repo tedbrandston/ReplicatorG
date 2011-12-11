@@ -19,7 +19,6 @@ import javax.swing.event.ChangeListener;
 import javax.vecmath.Point3d;
 
 import replicatorg.app.Base;
-import replicatorg.app.ui.modeling.PreviewPanel.DragMode;
 
 public abstract class Tool implements MouseMotionListener, MouseListener, MouseWheelListener {
 	public class AxisControl {
@@ -38,6 +37,15 @@ public abstract class Tool implements MouseMotionListener, MouseListener, MouseW
 			}
 		}	
 	}
+	
+	public enum DragMode {
+		NONE,
+		ROTATE_VIEW,
+		TRANSLATE_VIEW,
+		ROTATE_OBJECT,
+		SCALE_OBJECT,
+		TRANSLATE_OBJECT
+	};
 
 	public JButton createToolButton(String text, String iconPath) {
 		//ImageIcon icon = new ImageIcon(Base.getImage(iconPath, this));
@@ -114,12 +122,12 @@ public abstract class Tool implements MouseMotionListener, MouseListener, MouseW
 	public void mouseExited(MouseEvent e) {
 	}
 	public void mousePressed(MouseEvent e) {
-		parent.getModel().startDrag();
+		parent.getEditingModel().startDrag();
 		startPoint = e.getPoint();
 		button = e.getButton();
 	}
 	public void mouseReleased(MouseEvent e) {
-		parent.getModel().endDrag();
+		parent.getEditingModel().endDrag();
 		startPoint = null;
 	}
 	public void mouseWheelMoved(MouseWheelEvent e) {

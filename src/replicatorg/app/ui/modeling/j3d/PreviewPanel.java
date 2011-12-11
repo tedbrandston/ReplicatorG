@@ -1,7 +1,7 @@
 /**
  * 
  */
-package replicatorg.app.ui.modeling;
+package replicatorg.app.ui.modeling.j3d;
 
 import java.awt.Color;
 import java.awt.Dimension;
@@ -9,9 +9,6 @@ import java.awt.Font;
 import java.awt.GraphicsConfiguration;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
-import java.awt.event.MouseListener;
-import java.awt.event.MouseMotionListener;
-import java.awt.event.MouseWheelListener;
 import java.util.Random;
 import java.util.logging.Level;
 
@@ -41,8 +38,8 @@ import javax.media.j3d.Transform3D;
 import javax.media.j3d.TransformGroup;
 import javax.media.j3d.TransparencyAttributes;
 import javax.media.j3d.View;
-import javax.swing.JPanel;
 import javax.vecmath.Color3f;
+import javax.vecmath.Matrix4d;
 import javax.vecmath.Point3d;
 import javax.vecmath.Point3f;
 import javax.vecmath.Vector3d;
@@ -51,11 +48,11 @@ import javax.vecmath.Vector3f;
 import net.miginfocom.swing.MigLayout;
 import replicatorg.app.Base;
 import replicatorg.app.ui.MainWindow;
-import replicatorg.app.ui.modeling.j3d.EditingModel;
-import replicatorg.machine.Machine;
-import replicatorg.machine.MachineInterface;
+import replicatorg.app.ui.modeling.AbstractEditingModel;
+import replicatorg.app.ui.modeling.AbstractPreviewPanel;
+import replicatorg.app.ui.modeling.ToolPanel;
 import replicatorg.machine.model.BuildVolume;
-import replicatorg.machine.model.MachineModel;
+import replicatorg.model.AbstractBuildModel;
 import replicatorg.model.j3d.BuildModel;
 
 import com.sun.j3d.utils.universe.SimpleUniverse;
@@ -64,134 +61,15 @@ import com.sun.j3d.utils.universe.SimpleUniverse;
  * @author phooky
  *
  */
-public class PreviewPanel extends JPanel {
+public class PreviewPanel extends AbstractPreviewPanel {
+	
+	BoundingSphere bounds =	new BoundingSphere(new Point3d(0.0,0.0,0.0), 1000.0);
 
-	BoundingSphere bounds =
-		new BoundingSphere(new Point3d(0.0,0.0,0.0), 1000.0);
-
-	EditingModel model = null;
 	BranchGroup scene;
-	BuildVolume buildVol;
-	
-	public EditingModel getModel() { return model; }
-	
-	public void setModel(BuildModel buildModel) {
-		if (model == null || buildModel != model.getBuildModel()) {
-			if (buildModel != null) {
-				model = new EditingModel(buildModel, mainWindow);
-				setScene(model);
-			} else {
-				model = null;
-			}
-		}
-	}
-
-	private void setScene(EditingModel model) {
-		Base.logger.info(model.model.getPath());
-		if (objectBranch != null) {
-			sceneGroup.removeChild(objectBranch);
-		}
-		objectBranch = model.getGroup();
-		sceneGroup.addChild(objectBranch);
-	}
-	
-	/*
-	 * This is to ensure we can switch between machines with different dimensions
-	 * It is called from MainWindow loadMachine()
-	 */
-	public void rebuildScene(){
-		if (objectBranch != null) {
-			sceneGroup.removeChild(objectBranch);
-		}
-		scene.detach();
-		scene = createSTLScene();
-		objectBranch = model.getGroup();
-		model.updateModelColor();
-		sceneGroup.addChild(objectBranch);
-		univ.addBranchGraph(scene);
-	}
-	
-	
-	private void getBuildVolume(){
-		Base.logger.fine("Resetting the build volume!");
-		MachineInterface mc = this.mainWindow.getMachine(); 
-		if(mc instanceof Machine){
-			MachineModel mm = mc.getModel();
-			buildVol = mm.getBuildVolume();
-			Base.logger.fine("Dimensions:" + buildVol.getX() +','+ buildVol.getY() + ',' + buildVol.getZ());
-		}
-	}
-	
-	MainWindow mainWindow;
-
-	enum DragMode {
-		NONE,
-		ROTATE_VIEW,
-		TRANSLATE_VIEW,
-		ROTATE_OBJECT,
-		SCALE_OBJECT,
-		TRANSLATE_OBJECT
-	};
-
-	ToolPanel toolPanel;
-	
-	Tool currentTool = null; // The tool currently in use.
-	
-	void setTool(Tool tool) {
-		if (currentTool == tool) { return; }
-		if (currentTool != null) {
-			if (currentTool instanceof MouseListener) {
-				canvas.removeMouseListener((MouseListener)currentTool);
-			}
-			if (currentTool instanceof MouseMotionListener) {
-				canvas.removeMouseMotionListener((MouseMotionListener)currentTool);
-			}
-			if (currentTool instanceof MouseWheelListener) {
-				canvas.removeMouseWheelListener((MouseWheelListener)currentTool);
-			}
-			if (currentTool instanceof KeyListener) {
-				canvas.removeKeyListener((KeyListener)currentTool);
-			}
-		}
-		currentTool = tool;
-		if (currentTool != null) {
-			if (currentTool instanceof MouseListener) {
-				canvas.addMouseListener((MouseListener)currentTool);
-			}
-			if (currentTool instanceof MouseMotionListener) {
-				canvas.addMouseMotionListener((MouseMotionListener)currentTool);
-			}
-			if (currentTool instanceof MouseWheelListener) {
-				canvas.addMouseWheelListener((MouseWheelListener)currentTool);
-			}
-			if (currentTool instanceof KeyListener) {
-				canvas.addKeyListener((KeyListener)currentTool);
-			}
-		}
-	}
-		
-	Canvas3D canvas;
-	
-	void adjustViewAngle(double deltaYaw, double deltaPitch) {
-		turntableAngle += deltaYaw;
-		elevationAngle += deltaPitch;
-		updateVP();
-	}
-	
-	void adjustViewTranslation(double deltaX, double deltaY) {
-		cameraTranslation.x += deltaX;
-		cameraTranslation.y += deltaY;
-		updateVP();
-	}
-	
-	void adjustZoom(double deltaZoom) {
-		cameraTranslation.z += deltaZoom;
-		updateVP();
-	}
 	
 	public PreviewPanel(final MainWindow mainWindow) {
+		super(mainWindow);
 		
-		this.mainWindow = mainWindow;
 		//setLayout(new MigLayout()); 
 		setLayout(new MigLayout("fill,ins 0,gap 0"));
 		// Create Canvas3D and SimpleUniverse; add canvas to drawing panel
@@ -209,7 +87,7 @@ public class PreviewPanel extends JPanel {
 		
 		canvas.addKeyListener( new KeyListener() {
 			public void keyPressed(KeyEvent e) {
-				updateVP();
+				updateViewPoint();
 			}
 			public void keyReleased(KeyEvent e) {
 			}
@@ -219,9 +97,63 @@ public class PreviewPanel extends JPanel {
 		
 		addKeyListener(toolPanel);
 
-	}		
+	}	
+	
+	@Override
+	public AbstractEditingModel getEditingModel() {
+		return model;
+	}
 
 
+	@Override
+	public void setBuildModel(AbstractBuildModel buildModel) {
+		if (model == null || buildModel != model.getBuildModel()) {
+			if (buildModel != null) {
+				// this casts AbstractBuildModel as our package-local BuildModel
+				model = new EditingModel(((BuildModel)buildModel), mainWindow);
+				setEditingModel(model);
+			} else {
+				model = null;
+			}
+		}
+	}
+
+	@Override
+	public void setEditingModel(AbstractEditingModel editingModel) {
+		Base.logger.info(model.getBuildModel().getPath());
+		
+
+		// refers to our package's EditingModel
+		if(! (editingModel instanceof EditingModel))
+			throw new IllegalArgumentException("PreviewPanel requires a compatible EditingModel");
+		
+		EditingModel eModel = (EditingModel)editingModel;
+		
+		if (objectBranch != null) {
+			sceneGroup.removeChild(objectBranch);
+		}
+		objectBranch = eModel.getGroup();
+		sceneGroup.addChild(objectBranch);
+	}
+	
+	/*
+	 * This is to ensure we can switch between machines with different dimensions
+	 * It is called from MainWindow loadMachine()
+	 */
+	public void refreshScenery() {
+	}
+	public void refreshObjects() {
+		if (objectBranch != null) {
+			sceneGroup.removeChild(objectBranch);
+		}
+		scene.detach();
+		scene = createSTLScene();
+		objectBranch = ((EditingModel)model).getGroup();
+		model.updateModelColor();
+		sceneGroup.addChild(objectBranch);
+		univ.addBranchGraph(scene);
+	}
+	
 	private SimpleUniverse univ = null;
 	
 	public Node makeAmbientLight() {
@@ -477,14 +409,6 @@ public class PreviewPanel extends JPanel {
 	
 	BranchGroup sceneGroup;
 	BranchGroup objectBranch;
-			
-	/**
-	 * Center the object and flatten the bottommost poly.  (A more thorough version would
-	 * be able to correctly center a tripod or other spiky object.)
-	 */
-	public void align() {
-		model.center();
-	}
 	
 	
 	public BranchGroup createSTLScene() {
@@ -539,15 +463,24 @@ public class PreviewPanel extends JPanel {
 	double elevationAngle = ELEVATION_ANGLE_DEFAULT;
 	double turntableAngle = TURNTABLE_ANGLE_DEFAULT;
 
-	Transform3D getViewTransform() {
+	@Override
+	public Matrix4d getViewTransform() {
 		TransformGroup viewTG = univ.getViewingPlatform().getViewPlatformTransform();
-		Transform3D t = new Transform3D();
-		viewTG.getTransform(t);
-		return t;
+		
+		// put it in a Transform3D
+		Transform3D trans = new Transform3D();
+		viewTG.getTransform(trans);
+		
+		// put it in a Matrix4d
+		Matrix4d result = new Matrix4d();
+		trans.get(result);
+		
+		return result;
 	}
 	
 //	double VIEW_SCALE = 100d;
-	private void updateVP() {
+	@Override
+	public void updateViewPoint() {
 		TransformGroup viewTG = univ.getViewingPlatform().getViewPlatformTransform();
 		Transform3D t3d = new Transform3D();
 		Transform3D trans = new Transform3D();
@@ -591,7 +524,7 @@ public class PreviewPanel extends JPanel {
 		univ.getViewer().getView().setSceneAntialiasingEnable(true);
 		univ.getViewer().getView().setFrontClipDistance(10d);
 		univ.getViewer().getView().setBackClipDistance(1000d);
-		updateVP();
+		updateViewPoint();
 
 		// Ensure at least 5 msec per frame (i.e., < 200Hz)
 		univ.getViewer().getView().setMinimumFrameCycleTime(5);
@@ -599,29 +532,7 @@ public class PreviewPanel extends JPanel {
 		return c;
 	}
 
-	void resetView() {
-		elevationAngle = ELEVATION_ANGLE_DEFAULT;
-		turntableAngle = TURNTABLE_ANGLE_DEFAULT;
-		updateVP();
-	}
-
-	public void viewXY() {
-		turntableAngle = 0d;
-		elevationAngle = 0d;
-		updateVP();	
-	}
-	
-	public void viewYZ() {
-		turntableAngle = Math.PI/2;
-		elevationAngle = Math.PI/2;
-		updateVP();	
-	}
-	public void viewXZ() {
-		turntableAngle = 0d;
-		elevationAngle = Math.PI/2;
-		updateVP();	
-	}
-	
+	@Override
 	public void usePerspective(boolean perspective) {
 		univ.getViewer().getView().setProjectionPolicy(perspective?View.PERSPECTIVE_PROJECTION:View.PARALLEL_PROJECTION);
 	}

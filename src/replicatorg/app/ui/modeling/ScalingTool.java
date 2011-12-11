@@ -12,7 +12,6 @@ import javax.swing.JPanel;
 
 import net.miginfocom.swing.MigLayout;
 import replicatorg.app.Base;
-import replicatorg.app.ui.modeling.PreviewPanel.DragMode;
 
 public class ScalingTool extends Tool {
 
@@ -21,13 +20,13 @@ public class ScalingTool extends Tool {
 	}
 
 	@Override
-	Icon getButtonIcon() {
+	public Icon getButtonIcon() {
 		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
-	String getButtonName() {
+	public String getButtonName() {
 		return "Scale";
 	}
 
@@ -38,7 +37,7 @@ public class ScalingTool extends Tool {
 	
 	JFormattedTextField scaleFactor;
 	@Override
-	JPanel getControls() {
+	public JPanel getControls() {
 		JPanel p = new JPanel(new MigLayout("fillx,filly,gap 0"));
 		JButton b;
 
@@ -54,7 +53,7 @@ public class ScalingTool extends Tool {
 				if (txt != null) {
 					try {
 						double scale = Base.getLocalFormat().parse(txt).doubleValue();
-						parent.getModel().scale(scale,parent.getModel().isOnPlatform());
+						parent.getEditingModel().scale(scale,parent.getEditingModel().isOnPlatform());
 					} catch (Exception nfe) {
 						Base.logger.fine("Scale factor "+txt+" is not parseable");
 					}
@@ -66,7 +65,7 @@ public class ScalingTool extends Tool {
 		b = createToolButton("inches->mm","images/center-object.png");
 		b.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
-				parent.getModel().scale(25.4d,parent.getModel().isOnPlatform());
+				parent.getEditingModel().scale(25.4d,parent.getEditingModel().isOnPlatform());
 			}
 		});
 		p.add(b,"growx,wrap");
@@ -74,7 +73,7 @@ public class ScalingTool extends Tool {
 		b = createToolButton("mm->inches","images/center-object.png");
 		b.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
-				parent.getModel().scale(1d/25.4d,parent.getModel().isOnPlatform());
+				parent.getEditingModel().scale(1d/25.4d,parent.getEditingModel().isOnPlatform());
 			}
 		});
 		p.add(b,"growx,wrap");
@@ -90,7 +89,7 @@ public class ScalingTool extends Tool {
 	}
 
 	@Override
-	String getTitle() {
+	public String getTitle() {
 		return "Scale object";
 	}
 	
@@ -98,8 +97,8 @@ public class ScalingTool extends Tool {
 		super.mousePressed(e);
 		// Reset scale to current value (in case there have been undos, etc. since
 		// last update)
-		scaleDragChange = parent.getModel().model.getTransform().getScale();
-		isOnPlatform = parent.getModel().isOnPlatform();
+		scaleDragChange = parent.getEditingModel().getBuildModel().getTransform().getScale();
+		isOnPlatform = parent.getEditingModel().isOnPlatform();
 	}
 	public void mouseReleased(MouseEvent e) {
 	}
@@ -121,9 +120,9 @@ public class ScalingTool extends Tool {
 			break;
 		case SCALE_OBJECT:
 			scaleDragChange += (0.01*(xd+yd))*scaleDragChange;
-			double currentScale = parent.getModel().model.getTransform().getScale();
+			double currentScale = parent.getEditingModel().getBuildModel().getTransform().getScale();
 			double targetScale = scaleDragChange/currentScale;
-			parent.getModel().scale(targetScale, isOnPlatform);
+			parent.getEditingModel().scale(targetScale, isOnPlatform);
 			scaleFactor.setValue((double) ((int)(100*scaleDragChange))/100);
 //			Base.logger.info("scaleDragChange="+scaleDragChange);
 			break;

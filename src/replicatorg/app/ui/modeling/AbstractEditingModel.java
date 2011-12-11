@@ -2,11 +2,22 @@ package replicatorg.app.ui.modeling;
 
 import javax.vecmath.AxisAngle4d;
 import javax.vecmath.Point3d;
+import javax.vecmath.Vector3d;
 
 import replicatorg.model.AbstractBuildModel;
 
 public abstract class AbstractEditingModel {
 
+	public class ReferenceFrame {
+		public Point3d origin;
+		public Vector3d zAxis;
+		
+		public ReferenceFrame() {
+			origin = new Point3d();
+			zAxis = new Vector3d(0d,0d,1d);
+		}
+	}
+	
 	private AbstractBuildModel model;
 	protected Point3d centroid;
 	protected Point3d bottom;

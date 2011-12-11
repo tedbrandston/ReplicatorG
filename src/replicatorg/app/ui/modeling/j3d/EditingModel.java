@@ -31,15 +31,6 @@ import replicatorg.model.j3d.BuildModel;
  *
  */
 public class EditingModel extends AbstractEditingModel{
-	public class ReferenceFrame {
-		public Point3d origin;
-		public Vector3d zAxis;
-		
-		public ReferenceFrame() {
-			origin = new Point3d();
-			zAxis = new Vector3d(0d,0d,1d);
-		}
-	}
 	
 	/**
 	 * The underlying model being edited.
@@ -227,7 +218,7 @@ public class EditingModel extends AbstractEditingModel{
 
 	@Override
 	public void modelTransformChanged() {
-		shapeTransform.setTransform(model.getTransform());
+		shapeTransform.setTransform(new Transform3D(model.getTransform()));
 		mainWindow.updateUndo();
 	}
 

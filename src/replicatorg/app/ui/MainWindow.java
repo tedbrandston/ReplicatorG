@@ -114,6 +114,7 @@ import replicatorg.app.syntax.PdeTextAreaDefaults;
 import replicatorg.app.syntax.SyntaxDocument;
 import replicatorg.app.syntax.TextAreaPainter;
 import replicatorg.app.ui.controlpanel.ControlPanelWindow;
+import replicatorg.app.ui.modeling.AbstractPreviewPanel;
 import replicatorg.app.ui.modeling.gl.PreviewPanel;
 import replicatorg.app.util.PythonUtils;
 import replicatorg.app.util.SwingPythonSelector;
@@ -211,7 +212,7 @@ ToolpathGenerator.GeneratorListener
 	public Build build;
 
 	public JEditTextArea textarea;
-	public PreviewPanel previewPanel;
+	public AbstractPreviewPanel previewPanel;
 
 	public SimulationThread simulationThread;
 
@@ -258,11 +259,11 @@ ToolpathGenerator.GeneratorListener
 
 	public void refreshPreviewPanel() {
 		if (previewPanel != null) {
-			previewPanel.rebuildScene();
+			previewPanel.refreshScenery();
 		}
 	}
 
-	private PreviewPanel getPreviewPanel() {
+	private AbstractPreviewPanel getPreviewPanel() {
 		if (previewPanel == null) {
 			previewPanel = new PreviewPanel(this);
 			cardPanel.add(previewPanel,MODEL_TAB_KEY);
@@ -548,14 +549,14 @@ ToolpathGenerator.GeneratorListener
 
 	public void runToolpathGenerator() {
 		// Check if the model is on the platform
-		if (!getPreviewPanel().getModel().isOnPlatform()) {
+		if (!getPreviewPanel().getEditingModel().isOnPlatform()) {
 			String message = "The bottom of the model doesn't appear to be touching the build surface, and attempting to print it could damage your machine. Ok to move it to the build platform?";
 			int option = JOptionPane.showConfirmDialog(this, message , "Place model on build surface?", 
 					JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
 			if (option == JOptionPane.CANCEL_OPTION) { return; }
 			if (option == JOptionPane.YES_OPTION) {
 				// put the model on the platform.
-				getPreviewPanel().getModel().putOnPlatform();
+				getPreviewPanel().getEditingModel().putOnPlatform();
 			}
 
 
@@ -1707,7 +1708,7 @@ ToolpathGenerator.GeneratorListener
 
 	public void setModel(AbstractBuildModel model) {
 		if (model != null) {
-			getPreviewPanel().setModel(model);
+			getPreviewPanel().setBuildModel(model);
 		}
 	}
 
@@ -2882,7 +2883,7 @@ ToolpathGenerator.GeneratorListener
 
 		if(previewPanel != null)
 		{
-			getPreviewPanel().rebuildScene();
+			getPreviewPanel().refreshScenery();
 			updateBuild();
 		}
 	}

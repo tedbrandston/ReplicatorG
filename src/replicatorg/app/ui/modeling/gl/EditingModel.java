@@ -24,15 +24,6 @@ import replicatorg.model.gl.Scene;
  * Is shapeTransform supposed to do the same thing as my Shape.transform?
  */
 public class EditingModel extends AbstractEditingModel {
-	public class ReferenceFrame {
-		public Point3d origin;
-		public Vector3d zAxis;
-		
-		public ReferenceFrame() {
-			origin = new Point3d();
-			zAxis = new Vector3d(0d,0d,1d);
-		}
-	}
 	
 	/**
 	 * The underlying model being edited.

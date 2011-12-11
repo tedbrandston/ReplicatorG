@@ -28,7 +28,7 @@ public class ViewTool extends Tool {
 		b = createToolButton("Default","images/center-object.png");
 		b.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
-				parent.preview.resetView();
+				parent.getPreviewPanel().resetView();
 			}
 		});
 		p.add(b,"growx,growy");
@@ -36,7 +36,7 @@ public class ViewTool extends Tool {
 		b = createToolButton("XY","images/center-object.png");
 		b.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
-				parent.preview.viewXY();
+				parent.getPreviewPanel().viewXY();
 			}
 		});
 		p.add(b,"growx,growy");
@@ -44,7 +44,7 @@ public class ViewTool extends Tool {
 		b = createToolButton("XZ","images/center-object.png");
 		b.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
-				parent.preview.viewXZ();
+				parent.getPreviewPanel().viewXZ();
 			}
 		});
 		p.add(b,"growx,growy");
@@ -52,7 +52,7 @@ public class ViewTool extends Tool {
 		b = createToolButton("YZ","images/center-object.png");
 		b.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
-				parent.preview.viewYZ();
+				parent.getPreviewPanel().viewYZ();
 			}
 		});
 		p.add(b,"growx,growy");

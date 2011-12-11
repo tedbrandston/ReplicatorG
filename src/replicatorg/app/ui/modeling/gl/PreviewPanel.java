@@ -5,17 +5,12 @@ package replicatorg.app.ui.modeling.gl;
 
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
-import java.awt.event.MouseListener;
-import java.awt.event.MouseMotionListener;
-import java.awt.event.MouseWheelListener;
 import java.util.ArrayList;
 import java.util.logging.Level;
 
 import javax.media.opengl.GL2;
 import javax.media.opengl.GLContext;
 import javax.media.opengl.awt.GLJPanel;
-import javax.swing.JPanel;
 import javax.vecmath.Matrix4d;
 import javax.vecmath.Point3d;
 import javax.vecmath.Vector3d;
@@ -24,12 +19,8 @@ import net.miginfocom.swing.MigLayout;
 import replicatorg.app.Base;
 import replicatorg.app.ui.MainWindow;
 import replicatorg.app.ui.modeling.AbstractEditingModel;
-import replicatorg.app.ui.modelinggl.tools.Tool;
-import replicatorg.app.ui.modelinggl.tools.ToolPanel;
-import replicatorg.machine.Machine;
-import replicatorg.machine.MachineInterface;
-import replicatorg.machine.model.BuildVolume;
-import replicatorg.machine.model.MachineModel;
+import replicatorg.app.ui.modeling.AbstractPreviewPanel;
+import replicatorg.app.ui.modeling.ToolPanel;
 import replicatorg.model.AbstractBuildModel;
 import replicatorg.model.gl.Scene;
 import replicatorg.model.gl.Shape;
@@ -151,23 +142,11 @@ import replicatorg.model.gl.Shape;
  * 
  * 
  */
-public class PreviewPanel extends JPanel {
+public class PreviewPanel extends AbstractPreviewPanel {
 	
-	// I think this is rendered unecessary
-//	BoundingSphere bounds =	new BoundingSphere(new Point3d(0.0,0.0,0.0), 1000.0);
-	
-	BuildVolume buildVol;
-
-	GLJPanel canvas;
-	
-	MainWindow mainWindow;
-
-	ToolPanel toolPanel;
-	Tool currentTool = null;
-	
-	EditingModel model = null;
 	/** This holds everything we're going to display:
-	 * The platform, the starfield, the model object(s), etc. 
+	 * The platform, the starfield, the model object(s), etc.,
+	 * including the objectScene
 	 */
 	Scene scene;
 	/**
@@ -181,14 +160,13 @@ public class PreviewPanel extends JPanel {
 	GLContext context;
 	
 	public PreviewPanel(final MainWindow mainWindow) {
-		
-		initGL();
-		
-		this.mainWindow = mainWindow;
+		super(mainWindow);
 		setLayout(new MigLayout("fill,ins 0,gap 0"));
 
 		canvas = new GLJPanel();
-				
+		
+		initGL();
+		
 		add(canvas, "growx,growy");
 		
 		toolPanel = new ToolPanel(this);
@@ -198,9 +176,9 @@ public class PreviewPanel extends JPanel {
 			add(toolPanel,"dock east,width max(200,20%)");
 		}
 		// Create the content branch and add it to the universe
-		createSTLScene();
+		refreshScenery();
 		
-		canvas.addKeyListener( new KeyAdapter() {
+		canvas.addKeyListener(new KeyAdapter() {
 			public void keyPressed(KeyEvent e) {
 				updateViewPoint();
 			}
@@ -210,62 +188,32 @@ public class PreviewPanel extends JPanel {
 
 	}
 
-	private void initGL() {
-//		// Get the preferred graphics configuration for the default screen
-//		GraphicsConfiguration config =
-//			SimpleUniverse.getPreferredConfiguration();
-//
-//		// Create a Canvas3D using the preferred configuration
-//		Canvas3D c = new Canvas3D(config) {
-//			public Dimension getMinimumSize()
-//		    {
-//		        return new Dimension(0, 0);
-//		    }
-//		};
-//
-//		// Create simple universe with view branch
-//		univ = new SimpleUniverse(c);
-//		univ.getViewer().getView().setSceneAntialiasingEnable(true);
-//		univ.getViewer().getView().setFrontClipDistance(10d);
-//		univ.getViewer().getView().setBackClipDistance(1000d);
-//		updateViewPoint();
-//
-//		// Ensure at least 5 msec per frame (i.e., < 200Hz)
-//		univ.getViewer().getView().setMinimumFrameCycleTime(5);
-//
-//		return c;
-
-		if(context == null)
-			context = GLContext.getCurrent();
-
-		GL2 gl = context.getGL().getGL2();
-		
-		gl.glEnable(GL2.GL_LIGHTING);
-		gl.glLightModeli(GL2.GL_LIGHT_MODEL_TWO_SIDE, GL2.GL_TRUE);
-		
-	}
-	
-	public AbstractEditingModel getModel() {
-		return model;
-	}
-	
-	public void setModel(AbstractBuildModel buildModel) {
+	@Override
+	public void setBuildModel(AbstractBuildModel buildModel) {
 		if (model == null || buildModel != model.getBuildModel()) {
 			if (buildModel != null) {
-				model = new EditingModel(buildModel, mainWindow);
-				setScene(model);
+				model = new EditingModel((replicatorg.model.gl.BuildModel)buildModel, mainWindow);
+				setEditingModel(model);
 			} else {
 				model = null;
 			}
 		}
 	}
 
-	private void setScene(EditingModel model) {
-		Base.logger.info(model.model.getPath());
+	@Override
+	public void setEditingModel(AbstractEditingModel editingModel) {
+		Base.logger.info(editingModel.getBuildModel().getPath());
+		
+		// refers to our package's EditingModel
+		if(! (editingModel instanceof EditingModel))
+			throw new IllegalArgumentException("PreviewPanel requires a compatible EditingModel");
+		
+		EditingModel eModel = (EditingModel)editingModel;
+		
 		if (objectScene != null) {
 			scene.remove(objectScene);
 		}
-		objectScene = model.getScene();
+		objectScene = eModel.getScene();
 		scene.add(objectScene);
 	}
 	
@@ -273,76 +221,63 @@ public class PreviewPanel extends JPanel {
 	 * This is to ensure we can switch between machines with different dimensions
 	 * It is called from MainWindow loadMachine()
 	 */
-	public void rebuildScene(){
+	@Override
+	public void refreshScenery() {
+
+		getBuildVolume();
+		
+		makeAmbientLight();
+		makeDirectedLights();
+		
+		scene.add(makeBoundingBox());
+		scene.add(makeBackground());
+		scene.add(makeBaseGrid());
+		
+		if(Base.preferences.getBoolean("ui.show_starfield", false)) {
+			scene.add(makeStarField(400, 2));
+		}
+	}
+	
+	@Override
+	public void refreshObjects() {
 		if (objectScene != null) {
 			scene.remove(objectScene);
 		}
-		createSTLScene();
-		objectScene = model.getScene();
+		objectScene = ((EditingModel)model).getScene();
 		model.updateModelColor();
 		scene.add(objectScene);
 	}
 	
-	
-	private void getBuildVolume(){
-		Base.logger.fine("Resetting the build volume!");
-		MachineInterface mc = this.mainWindow.getMachine(); 
-		if(mc instanceof Machine){
-			MachineModel mm = mc.getModel();
-			buildVol = mm.getBuildVolume();
-			Base.logger.fine("Dimensions:" + buildVol.getX() +','+ buildVol.getY() + ',' + buildVol.getZ());
-		}
-	}
-	
-	public void setTool(Tool tool) {
-		if (currentTool == tool) { return; }
-		if (currentTool != null) {
-			if (currentTool instanceof MouseListener) {
-				canvas.removeMouseListener((MouseListener)currentTool);
-			}
-			if (currentTool instanceof MouseMotionListener) {
-				canvas.removeMouseMotionListener((MouseMotionListener)currentTool);
-			}
-			if (currentTool instanceof MouseWheelListener) {
-				canvas.removeMouseWheelListener((MouseWheelListener)currentTool);
-			}
-			if (currentTool instanceof KeyListener) {
-				canvas.removeKeyListener((KeyListener)currentTool);
-			}
-		}
-		currentTool = tool;
-		if (currentTool != null) {
-			if (currentTool instanceof MouseListener) {
-				canvas.addMouseListener((MouseListener)currentTool);
-			}
-			if (currentTool instanceof MouseMotionListener) {
-				canvas.addMouseMotionListener((MouseMotionListener)currentTool);
-			}
-			if (currentTool instanceof MouseWheelListener) {
-				canvas.addMouseWheelListener((MouseWheelListener)currentTool);
-			}
-			if (currentTool instanceof KeyListener) {
-				canvas.addKeyListener((KeyListener)currentTool);
-			}
-		}
-	}
+	@Override
+	public void updateViewPoint() {
+//		TransformGroup viewTG = univ.getViewingPlatform().getViewPlatformTransform();
 		
-	
-	public void adjustViewAngle(double deltaYaw, double deltaPitch) {
-		turntableAngle += deltaYaw;
-		elevationAngle += deltaPitch;
-		updateViewPoint();
-	}
-	
-	public void adjustViewTranslation(double deltaX, double deltaY) {
-		cameraTranslation.x += deltaX;
-		cameraTranslation.y += deltaY;
-		updateViewPoint();
-	}
-	
-	public void adjustZoom(double deltaZoom) {
-		cameraTranslation.z += deltaZoom;
-		updateViewPoint();
+		// we init all the matrices using the identity matrix, to save calls to setIdentity
+		viewMatrix = new Matrix4d();
+		viewMatrix.setIdentity();
+		Matrix4d trans = new Matrix4d(viewMatrix);
+		Matrix4d rotZ = new Matrix4d(viewMatrix);
+		Matrix4d rotX = new Matrix4d(viewMatrix);
+		Matrix4d drop = new Matrix4d(viewMatrix);
+		Matrix4d raise = new Matrix4d(viewMatrix);
+		
+		trans.setTranslation(cameraTranslation);
+		drop.setTranslation(new Vector3d(0,0,50)); // magic number?
+		raise.invert(drop);
+		
+		rotX.rotX(elevationAngle);
+		rotZ.rotZ(turntableAngle);
+		
+		viewMatrix.mul(drop);
+		viewMatrix.mul(rotZ);
+		viewMatrix.mul(rotX);
+		viewMatrix.mul(raise);
+		viewMatrix.mul(trans);
+
+		if (Base.logger.isLoggable(Level.FINE)) {
+			Base.logger.fine("Camera Translation: "+cameraTranslation.toString());
+			Base.logger.fine("Elevation "+Double.toString(elevationAngle)+", turntable "+Double.toString(turntableAngle));
+		}
 	}
 	
 	public void makeAmbientLight() {
@@ -668,106 +603,19 @@ public class PreviewPanel extends JPanel {
     	System.out.println("make stars not yet implemented");
         return stars;
     }
-			
-	/**
-	 * Center the object and flatten the bottommost poly.  (A more thorough version would
-	 * be able to correctly center a tripod or other spiky object.)
-	 */
-	public void align() {
-		model.center();
-	}
-	
-	
-	public void createSTLScene() {
-		getBuildVolume();
-		
-		makeAmbientLight();
-		makeDirectedLights();
-		
-		scene.add(makeBoundingBox());
-		scene.add(makeBackground());
-		scene.add(makeBaseGrid());
-		
-		if(Base.preferences.getBoolean("ui.show_starfield", false)) {
-			scene.add(makeStarField(400, 2));
-		}
-	}
-	
 
 	/*******************************************************************************************************************************/
-	
-	// These values were determined experimentally to look pretty dang good.
-	final static Vector3d CAMERA_TRANSLATION_DEFAULT = new Vector3d(0,0,290);
-	final static double ELEVATION_ANGLE_DEFAULT = 1.278;
-	final static double TURNTABLE_ANGLE_DEFAULT = 0.214;
-	final static double CAMERA_DISTANCE_DEFAULT = 300d; // 30cm
-	
-	Matrix4d viewMatrix;
-	Vector3d cameraTranslation = new Vector3d(CAMERA_TRANSLATION_DEFAULT);
-	double elevationAngle = ELEVATION_ANGLE_DEFAULT;
-	double turntableAngle = TURNTABLE_ANGLE_DEFAULT;
 
+	Matrix4d viewMatrix;
+
+	@Override
 	public Matrix4d getViewTransform() {
 //		TransformGroup viewTG = univ.getViewingPlatform().getViewPlatformTransform();
 //		Transform3D t = new Transform3D();
 //		viewTG.getTransform(t);
 //		return t;
-		throw new UnsupportedOperationException("PreviewPanel.getViewTransform() not implemented");
-	}
-	
-	// GL: I've changed the name of this to reflect what I think it does, but I'm not sure about it... 
-	private void updateViewPoint() {
-//		TransformGroup viewTG = univ.getViewingPlatform().getViewPlatformTransform();
-		
-		// we init all the matrices using the identity matrix, to save calls to setIdentity
-		viewMatrix = new Matrix4d();
-		viewMatrix.setIdentity();
-		Matrix4d trans = new Matrix4d(viewMatrix);
-		Matrix4d rotZ = new Matrix4d(viewMatrix);
-		Matrix4d rotX = new Matrix4d(viewMatrix);
-		Matrix4d drop = new Matrix4d(viewMatrix);
-		Matrix4d raise = new Matrix4d(viewMatrix);
-		
-		trans.setTranslation(cameraTranslation);
-		drop.setTranslation(new Vector3d(0,0,50)); // magic number?
-		raise.invert(drop);
-		
-		rotX.rotX(elevationAngle);
-		rotZ.rotZ(turntableAngle);
-		
-		viewMatrix.mul(drop);
-		viewMatrix.mul(rotZ);
-		viewMatrix.mul(rotX);
-		viewMatrix.mul(raise);
-		viewMatrix.mul(trans);
-
-		if (Base.logger.isLoggable(Level.FINE)) {
-			Base.logger.fine("Camera Translation: "+cameraTranslation.toString());
-			Base.logger.fine("Elevation "+Double.toString(elevationAngle)+", turntable "+Double.toString(turntableAngle));
-		}
-	}
-
-	public void resetView() {
-		elevationAngle = ELEVATION_ANGLE_DEFAULT;
-		turntableAngle = TURNTABLE_ANGLE_DEFAULT;
-		updateViewPoint();
-	}
-
-	public void viewXY() {
-		turntableAngle = 0d;
-		elevationAngle = 0d;
-		updateViewPoint();	
-	}
-	
-	public void viewYZ() {
-		turntableAngle = Math.PI/2;
-		elevationAngle = Math.PI/2;
-		updateViewPoint();	
-	}
-	public void viewXZ() {
-		turntableAngle = 0d;
-		elevationAngle = Math.PI/2;
-		updateViewPoint();	
+//		throw new UnsupportedOperationException("PreviewPanel.getViewTransform() not implemented");
+		return viewMatrix;
 	}
 	
 	public void usePerspective(boolean perspective) {
@@ -775,9 +623,39 @@ public class PreviewPanel extends JPanel {
 		
 	}
 
-	public MainWindow getMainWindow()
-	{
-		return mainWindow;
-	}
+	private void initGL() {
+//		// Get the preferred graphics configuration for the default screen
+//		GraphicsConfiguration config =
+//			SimpleUniverse.getPreferredConfiguration();
+//
+//		// Create a Canvas3D using the preferred configuration
+//		Canvas3D c = new Canvas3D(config) {
+//			public Dimension getMinimumSize()
+//		    {
+//		        return new Dimension(0, 0);
+//		    }
+//		};
+//
+//		// Create simple universe with view branch
+//		univ = new SimpleUniverse(c);
+//		univ.getViewer().getView().setSceneAntialiasingEnable(true);
+//		univ.getViewer().getView().setFrontClipDistance(10d);
+//		univ.getViewer().getView().setBackClipDistance(1000d);
+//		updateViewPoint();
+//
+//		// Ensure at least 5 msec per frame (i.e., < 200Hz)
+//		univ.getViewer().getView().setMinimumFrameCycleTime(5);
+//
+//		return c;
 
+		if(context == null)
+			context = GLContext.getCurrent();
+
+		GL2 gl = context.getGL().getGL2();
+		
+		gl.glEnable(GL2.GL_LIGHTING);
+		gl.glLightModeli(GL2.GL_LIGHT_MODEL_TWO_SIDE, GL2.GL_TRUE);
+		
+	}
+	
 }

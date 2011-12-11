@@ -13,7 +13,6 @@ import javax.vecmath.AxisAngle4d;
 
 import net.miginfocom.swing.MigLayout;
 import replicatorg.app.Base;
-import replicatorg.app.ui.modeling.PreviewPanel.DragMode;
 
 public class RotationTool extends Tool {
 	public RotationTool(ToolPanel parent) {
@@ -21,26 +20,26 @@ public class RotationTool extends Tool {
 	}
 	
 	@Override
-	Icon getButtonIcon() {
+	public Icon getButtonIcon() {
 		return null;
 	}
 
 	@Override
-	String getButtonName() {
+	public String getButtonName() {
 		return "Rotate";
 	}
 
 	JCheckBox lockZ;
 	
 	@Override
-	JPanel getControls() {
+	public JPanel getControls() {
 		JPanel p = new JPanel(new MigLayout("fillx,gap 0,wrap 2","[50%]0[50%]"));
 		JButton b;
 
 		b = createToolButton("Z+","images/center-object.png");
 		b.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
-				parent.getModel().rotateObject(new AxisAngle4d(0d, 0d, 1d, Math.PI/2));
+				parent.getEditingModel().rotateObject(new AxisAngle4d(0d, 0d, 1d, Math.PI/2));
 			}
 		});
 		p.add(b,"growx");
@@ -48,7 +47,7 @@ public class RotationTool extends Tool {
 		b = createToolButton("Z-","images/center-object.png");
 		b.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
-				parent.getModel().rotateObject(new AxisAngle4d(0d, 0d, 1d, -Math.PI/2));
+				parent.getEditingModel().rotateObject(new AxisAngle4d(0d, 0d, 1d, -Math.PI/2));
 			}
 		});
 		p.add(b,"growx");
@@ -56,7 +55,7 @@ public class RotationTool extends Tool {
 		b = createToolButton("X+","images/center-object.png");
 		b.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
-				parent.getModel().rotateObject(new AxisAngle4d(1d, 0d, 0d, Math.PI/2));
+				parent.getEditingModel().rotateObject(new AxisAngle4d(1d, 0d, 0d, Math.PI/2));
 			}
 		});
 		p.add(b,"growx");
@@ -64,7 +63,7 @@ public class RotationTool extends Tool {
 		b = createToolButton("X-","images/center-object.png");
 		b.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
-				parent.getModel().rotateObject(new AxisAngle4d(1d, 0d, 0d, -Math.PI/2));
+				parent.getEditingModel().rotateObject(new AxisAngle4d(1d, 0d, 0d, -Math.PI/2));
 			}
 		});
 		p.add(b,"growx");
@@ -72,7 +71,7 @@ public class RotationTool extends Tool {
 		b = createToolButton("Y+","images/center-object.png");
 		b.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
-				parent.getModel().rotateObject(new AxisAngle4d(0d, 1d, 0d, Math.PI/2));
+				parent.getEditingModel().rotateObject(new AxisAngle4d(0d, 1d, 0d, Math.PI/2));
 			}
 		});
 		p.add(b,"growx");
@@ -80,7 +79,7 @@ public class RotationTool extends Tool {
 		b = createToolButton("Y-","images/center-object.png");
 		b.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
-				parent.getModel().rotateObject(new AxisAngle4d(0d, 1d, 0d, -Math.PI/2));
+				parent.getEditingModel().rotateObject(new AxisAngle4d(0d, 1d, 0d, -Math.PI/2));
 			}
 		});
 		p.add(b,"growx");
@@ -88,7 +87,7 @@ public class RotationTool extends Tool {
 		b = createToolButton("Lay flat","images/center-object.png");
 		b.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
-				parent.getModel().layFlat();
+				parent.getEditingModel().layFlat();
 			}
 		});
 		p.add(b,"growx,spanx");
@@ -107,7 +106,7 @@ public class RotationTool extends Tool {
 	}
 
 	@Override
-	String getTitle() {
+	public String getTitle() {
 		return "Rotate Object";
 	}
 	
@@ -125,7 +124,7 @@ public class RotationTool extends Tool {
 		if (lockZ.isSelected()) { yd = 0; }
 		switch (mode) {
 		case ROTATE_OBJECT:
-			parent.getModel().rotateObject(0.05*xd, -0.05*yd);
+			parent.getEditingModel().rotateObject(0.05*xd, -0.05*yd);
 			break;
 		case NONE:
 			super.mouseDragged(e);

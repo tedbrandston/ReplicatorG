@@ -7,7 +7,6 @@ import javax.swing.Icon;
 import javax.swing.JButton;
 import javax.swing.JPanel;
 
-
 import net.miginfocom.swing.MigLayout;
 
 public class MirrorTool extends Tool {
@@ -33,7 +32,7 @@ public class MirrorTool extends Tool {
 		b = createToolButton("Reflect in X","images/center-object.png");
 		b.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
-				parent.getModel().mirrorX();
+				parent.getEditingModel().mirrorX();
 			}
 		});
 		p.add(b,"growx,wrap");
@@ -41,7 +40,7 @@ public class MirrorTool extends Tool {
 		b = createToolButton("Reflect in Y","images/center-object.png");
 		b.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
-				parent.getModel().mirrorY();
+				parent.getEditingModel().mirrorY();
 			}
 		});
 		p.add(b,"growx,wrap");
@@ -49,7 +48,7 @@ public class MirrorTool extends Tool {
 		b = createToolButton("Reflect in Z","images/center-object.png");
 		b.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
-				parent.getModel().mirrorZ();
+				parent.getEditingModel().mirrorZ();
 			}
 		});
 		p.add(b,"growx,wrap");
