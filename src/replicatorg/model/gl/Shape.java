@@ -10,6 +10,7 @@ public abstract class Shape implements Cloneable{
 	protected final int listNum;
 	protected String name;
 	protected Matrix4d transform;
+	protected AABB bbox;
 	
 	public Shape(GLContext context, int listNum)
 	{
@@ -86,7 +87,10 @@ public abstract class Shape implements Cloneable{
 		this.transform = transform;
 	}
 	
-	public abstract AABB getBoundingBox();
+	public AABB getBoundingBox()
+	{
+		return bbox;
+	}
 	
 	public AABB getTransformedBoundingBox()
 	{

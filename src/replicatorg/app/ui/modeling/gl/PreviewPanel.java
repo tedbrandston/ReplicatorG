@@ -9,7 +9,10 @@ import java.util.ArrayList;
 import java.util.logging.Level;
 
 import javax.media.opengl.GL2;
+import javax.media.opengl.GLAutoDrawable;
 import javax.media.opengl.GLContext;
+import javax.media.opengl.GLDrawableFactory;
+import javax.media.opengl.GLEventListener;
 import javax.media.opengl.awt.GLJPanel;
 import javax.vecmath.Matrix4d;
 import javax.vecmath.Point3d;
@@ -142,7 +145,7 @@ import replicatorg.model.gl.Shape;
  * 
  * 
  */
-public class PreviewPanel extends AbstractPreviewPanel {
+public class PreviewPanel extends AbstractPreviewPanel implements GLEventListener{
 	
 	/** This holds everything we're going to display:
 	 * The platform, the starfield, the model object(s), etc.,
@@ -157,15 +160,17 @@ public class PreviewPanel extends AbstractPreviewPanel {
 	/**
 	 *  our GLContext on which all lighting/rendering is done 
 	 */
-	GLContext context;
+	private GLContext context;
+	private GLJPanel glCanvas;
 	
 	public PreviewPanel(final MainWindow mainWindow) {
 		super(mainWindow);
 		setLayout(new MigLayout("fill,ins 0,gap 0"));
 
 		canvas = new GLJPanel();
-		
-		initGL();
+		glCanvas = (GLJPanel)canvas;
+		// dangerous leaking this, should make an inner class that handles this stuff
+		glCanvas.addGLEventListener(this);
 		
 		add(canvas, "growx,growy");
 		
@@ -176,7 +181,7 @@ public class PreviewPanel extends AbstractPreviewPanel {
 			add(toolPanel,"dock east,width max(200,20%)");
 		}
 		// Create the content branch and add it to the universe
-		refreshScenery();
+//		refreshScenery();
 		
 		canvas.addKeyListener(new KeyAdapter() {
 			public void keyPressed(KeyEvent e) {
@@ -225,6 +230,10 @@ public class PreviewPanel extends AbstractPreviewPanel {
 	public void refreshScenery() {
 
 		getBuildVolume();
+		
+		// if we haven't initialized yet...
+		if(context == null)
+			return;
 		
 		makeAmbientLight();
 		makeDirectedLights();
@@ -623,7 +632,7 @@ public class PreviewPanel extends AbstractPreviewPanel {
 		
 	}
 
-	private void initGL() {
+//	private void initGL() {
 //		// Get the preferred graphics configuration for the default screen
 //		GraphicsConfiguration config =
 //			SimpleUniverse.getPreferredConfiguration();
@@ -647,14 +656,37 @@ public class PreviewPanel extends AbstractPreviewPanel {
 //		univ.getViewer().getView().setMinimumFrameCycleTime(5);
 //
 //		return c;
+//	}
 
+	@Override
+	public void init(GLAutoDrawable drawable) {
 		if(context == null)
 			context = GLContext.getCurrent();
-
 		GL2 gl = context.getGL().getGL2();
 		
 		gl.glEnable(GL2.GL_LIGHTING);
 		gl.glLightModeli(GL2.GL_LIGHT_MODEL_TWO_SIDE, GL2.GL_TRUE);
+		
+		refreshScenery();
+		refreshObjects();
+	}
+
+	@Override
+	public void dispose(GLAutoDrawable drawable) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void display(GLAutoDrawable drawable) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void reshape(GLAutoDrawable drawable, int x, int y, int width,
+			int height) {
+		// TODO Auto-generated method stub
 		
 	}
 	

@@ -2,6 +2,7 @@ package replicatorg.model;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.logging.Level;
 
 import javax.vecmath.Matrix4d;
 
@@ -22,7 +23,10 @@ public abstract class AbstractBuildModel extends BuildElement {
 	public String getPath() {
 		try {
 			return file.getCanonicalPath();
-		} catch (IOException ioe) { return null; }
+		} catch (IOException ioe) {
+			Base.logger.log(Level.SEVERE, "IOException while getting path.", ioe);
+			return null;
+		}
 	}
 
 	private String getFileExtension(File file) {

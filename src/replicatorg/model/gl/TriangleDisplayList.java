@@ -12,7 +12,6 @@ public class TriangleDisplayList extends Shape{
 
 	private final TriangleList triangles;
 	
-	private AABB bboxCache;
 	/**
 	 * Constructs a new TriangleDisplayList in the given GLContext referring to
 	 * a display list with the given number.
@@ -62,9 +61,10 @@ public class TriangleDisplayList extends Shape{
 		Point3d[][] t = triangles.getTriangleArray();
 		Point3d[] n = triangles.getNormalArray();
 		
-		bboxCache = new AABB();
+		bbox = new AABB();
 		
 		gl.glNewList(listNum, GL2.GL_COMPILE);
+		gl.glBegin(GL2.GL_TRIANGLES);
 		for(int i = 0; i < triangles.length(); i++)
 		{
         	// draw triangle to our gl object
@@ -75,23 +75,17 @@ public class TriangleDisplayList extends Shape{
         	gl.glVertex3d(t[i][2].x, t[i][2].y, t[i][2].z);
         	
         	// add the points to our bounding box 
-        	bboxCache.incorporate(t[i][0]);
-        	bboxCache.incorporate(t[i][1]);
-        	bboxCache.incorporate(t[i][2]);
+        	bbox.incorporate(t[i][0]);
+        	bbox.incorporate(t[i][1]);
+        	bbox.incorporate(t[i][2]);
 		}
+		gl.glEnd();
 		gl.glEndList();
-		
 	}
 	
 	public TriangleList getTriangles()
 	{
 		return triangles;
-	}
-	
-	@Override
-	public AABB getBoundingBox()
-	{
-		return bboxCache;
 	}
 	
 	@Override

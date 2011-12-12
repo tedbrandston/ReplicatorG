@@ -125,9 +125,4 @@ public class Scene extends Shape{
 				
 		return new Scene(tmp);
 	}
-	@Override
-	public AABB getBoundingBox() {
-		// TODO Auto-generated method stub
-		return null;
-	}
 }

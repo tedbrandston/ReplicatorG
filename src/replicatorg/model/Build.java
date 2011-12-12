@@ -36,7 +36,7 @@ import javax.swing.JOptionPane;
 
 import replicatorg.app.Base;
 import replicatorg.app.ui.MainWindow;
-import replicatorg.model.j3d.BuildModel;
+import replicatorg.model.gl.BuildModel;
 
 /**
  * Stores information about files in the current build
